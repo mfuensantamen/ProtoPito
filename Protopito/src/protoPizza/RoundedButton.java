@@ -11,7 +11,7 @@ import javax.swing.JButton;
 import javax.swing.SwingConstants;
 
 public class RoundedButton extends JButton {
-// clase para generar boton con bordes redondeados
+	// clase para generar boton con bordes redondeados
 
 	private final int radius;
 
@@ -24,7 +24,7 @@ public class RoundedButton extends JButton {
 		setBorderPainted(false);
 		setOpaque(false);
 
-		// quitamos márgenes raros del L&F
+		// márgenes
 		setMargin(new Insets(0, 12, 0, 12));
 		setHorizontalAlignment(SwingConstants.CENTER);
 		setVerticalAlignment(SwingConstants.CENTER);
@@ -43,16 +43,25 @@ public class RoundedButton extends JButton {
 		g2.setColor(new Color(0, 0, 0, 50));
 		g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
 
-		// texto centrado REAL (baseline)
+		// texto
 		String text = getText();
 		if (text != null && !text.isEmpty()) {
 			g2.setFont(getFont());
 			FontMetrics fm = g2.getFontMetrics();
-			int textWidth = fm.stringWidth(text);
-			int x = (getWidth() - textWidth) / 2;
 
-			// y centrado vertical exacto:
-			int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+			// padding para el texto
+			Insets in = getInsets();
+			int availableW = getWidth() - in.left - in.right;
+			int availableH = getHeight() - in.top - in.bottom;
+
+			int textWidth = fm.stringWidth(text);
+
+			// centrado horizontal dentro del área útil
+			int x = in.left + (availableW - textWidth) / 2;
+
+			// centrado vertical por baseline dentro del área útil
+			int y = in.top + (availableH - fm.getHeight()) / 2 + fm.getAscent();
+			y += 3;
 
 			g2.setColor(getForeground());
 			g2.drawString(text, x, y);

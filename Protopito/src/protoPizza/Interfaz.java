@@ -29,21 +29,26 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.EtchedBorder;
 
+@SuppressWarnings("serial")
 public class Interfaz extends JFrame {
-// clase para todo el apartado visual
 
 	// etiquetas
 	private JLabel lblNum;
 	private JLabel lblNps;
-	private JLabel lblNpc;
-	// boton
+//	private JLabel lblNpc;
+
+	// imagen clicker
 	ImageIcon iconNormal;
 	ImageIcon iconBig;
 	private JLabel pizzaLabel;
-//	private BotonClicker btnClicker;
+
+	// capa de FX (floats + halo auto)
+	private PizzaFXPane pizzaFX;
+
 	// panel
 	private JPanel panelMejoras;
 	// seccion con scroll
@@ -69,7 +74,6 @@ public class Interfaz extends JFrame {
 		nf.setMaximumFractionDigits(0);
 		nf.setMinimumFractionDigits(0);
 		nf.setGroupingUsed(true);
-		// puntos en miles
 	}
 
 	public Interfaz(Datos datos, List<Mejora> mejoras, List<Mejora> mejorasClicker) throws IOException {
@@ -82,29 +86,35 @@ public class Interfaz extends JFrame {
 		render();
 	}
 
-	// panel de arriba + central
 	private void construirUI() throws IOException {
 		setTitle("ProtoPito - Incremental");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		// tamaño de ventana
-		setMinimumSize(new Dimension(600, 755));
+		setMinimumSize(new Dimension(600, 850));
 
 		getContentPane().setLayout(new BorderLayout(0, 0));
 
 		// panel de arriba
 		JPanel panelSuperior = new JPanel();
-		panelSuperior.setPreferredSize(new Dimension(800, 350));
+		panelSuperior.setPreferredSize(new Dimension(850, 380));
 		panelSuperior.setBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null));
 		panelSuperior.setBackground(new Color(150, 150, 170));
 		panelSuperior.setLayout(new BorderLayout(0, 0));
 		getContentPane().add(panelSuperior, BorderLayout.NORTH);
 
-		// contenedor para num + nps + boton
+		// contenedor para num + nps + pizza (CENTRO)
 		JPanel panelNums = new JPanel();
-		panelNums.setBorder(new EmptyBorder(20, 20, 20, 20));
+		panelNums.setBorder(new EmptyBorder(16, 20, 8, 20)); // CAMBIO: menos padding abajo
 		panelNums.setOpaque(false);
 		panelNums.setLayout(new BoxLayout(panelNums, BoxLayout.Y_AXIS));
 		panelSuperior.add(panelNums, BorderLayout.CENTER);
+
+		// CAMBIO: footer abajo del todo (SOUTH), no ocupa hueco en el centro
+		JLabel pieBoton = new JLabel("Pulsa para cocinar Pizzas");
+		pieBoton.setForeground(new Color(225, 208, 205));
+		pieBoton.setFont(new Font("Segoe UI Emoji", Font.BOLD, 9)); // CAMBIO: más pequeño
+		pieBoton.setHorizontalAlignment(SwingConstants.CENTER);
+		pieBoton.setBorder(new EmptyBorder(0, 0, 6, 0)); // CAMBIO: pegado al borde inferior
+		panelSuperior.add(pieBoton, BorderLayout.SOUTH);
 
 		// etiqueta num
 		lblNum = new JLabel("0");
@@ -120,43 +130,43 @@ public class Interfaz extends JFrame {
 		lblNps.setAlignmentX(Component.CENTER_ALIGNMENT);
 		lblNps.setBorder(new EmptyBorder(6, 0, 6, 0));
 
-		lblNpc = new JLabel("ERROR");
-		lblNpc.setForeground(new Color(255, 228, 225));
-		lblNpc.setFont(emoji);
-		lblNpc.setAlignmentX(Component.CENTER_ALIGNMENT);
-		lblNpc.setBorder(new EmptyBorder(6, 0, 6, 0));
+//		lblNpc = new JLabel("ERROR");
+//		lblNpc.setForeground(new Color(255, 228, 225));
+//		lblNpc.setFont(emoji);
+//		lblNpc.setAlignmentX(Component.CENTER_ALIGNMENT);
+//		lblNpc.setBorder(new EmptyBorder(6, 0, 6, 0));
+
 		panelNums.add(lblNps);
-		panelNums.add(lblNpc);
+//		panelNums.add(lblNpc);
 
-		// PIZZAA
-		// Carga y prepara dos iconos: normal y pulsado
+		// PIZZA
 		var url = getClass().getResource("/pizza.png");
-		if (url == null) {
+		if (url == null)
 			throw new RuntimeException("No se encuentra el archivo pizza.png");
-		}
-		BufferedImage pizzaImg = ImageIO.read(url);
 
+		BufferedImage pizzaImg = ImageIO.read(url);
 		this.iconNormal = new ImageIcon(pizzaImg.getScaledInstance(200, 200, Image.SCALE_SMOOTH));
 		this.iconBig = new ImageIcon(pizzaImg.getScaledInstance(207, 207, Image.SCALE_SMOOTH));
 
-		pizzaLabel = new JLabel(this.iconNormal);
-		pizzaLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		pizzaLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-		pizzaLabel.setPreferredSize(new Dimension(208, 208));
-		pizzaLabel.setMinimumSize(new Dimension(208, 208));
-		pizzaLabel.setMaximumSize(new Dimension(208, 208));
-		panelNums.add(pizzaLabel);
+		this.pizzaLabel = new JLabel(this.iconNormal);
+		this.pizzaLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		this.pizzaLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+		this.pizzaLabel.setPreferredSize(new Dimension(208, 208));
 
-		// PIZZAA
+		// FX Pane (floats + halo)
+		pizzaFX = new PizzaFXPane(this.pizzaLabel);
+		pizzaFX.setOpaque(false);
 
-		// separador
-		panelNums.add(Box.createVerticalStrut(20));
-		// etiqueta pieBoton
-		JLabel pieBoton = new JLabel("Pulsa para cocinar Pizzas");
-		pieBoton.setForeground(new Color(225, 208, 205));
-		pieBoton.setFont(new Font("Segoe UI Emoji", Font.BOLD, 10));
-		pieBoton.setAlignmentX(Component.CENTER_ALIGNMENT);
-		panelNums.add(pieBoton);
+		// CAMBIO: halo más cerca, amarillo, y más ancho
+		pizzaFX.setHaloColors(new Color(255, 215, 0), new Color(255, 245, 200));
+		pizzaFX.setHaloStrokes(12f, 8f);
+		pizzaFX.setHaloPadding(2);
+
+		pizzaFX.setAlignmentX(Component.CENTER_ALIGNMENT);
+		pizzaFX.setPreferredSize(new Dimension(260, 260)); // CAMBIO: evita corte abajo + ajusta al halo
+		pizzaFX.setMaximumSize(new Dimension(280, 280));
+
+		panelNums.add(pizzaFX);
 
 		// zona central de mejoras
 		panelMejoras = new JPanel();
@@ -172,40 +182,46 @@ public class Interfaz extends JFrame {
 		setVisible(true);
 	}
 
-	// accion de clicker
 	private void conectarEventos() {
 		feedbackBotonPizza();
 		render();
 	}
 
+	public void notifyAutoClickFX() {
+		if (pizzaFX != null)
+			pizzaFX.notifyAutoClickTick();
+	}
+
 	public void feedbackBotonPizza() {
-		// Feedback: zoom rápido al hacer click
 		int feedbackMs = 90;
 
 		pizzaLabel.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
 				pizzaLabel.setIcon(iconBig);
+				pizzaLabel.revalidate();
+				pizzaLabel.repaint();
 
-				// Vuelve al icono normal tras un instante
-				new javax.swing.Timer(feedbackMs, ev -> {
+				new Timer(feedbackMs, ev -> {
 					pizzaLabel.setIcon(iconNormal);
-					((javax.swing.Timer) ev.getSource()).stop();
+					pizzaLabel.revalidate();
+					pizzaLabel.repaint();
+					((Timer) ev.getSource()).stop();
 				}).start();
-				// TU ACCIÓN DE CLICK
+
+				// float click manual
+				double npc = datos.getClickIncremento() + datos.getNps() / 50.0;
+				if (pizzaFX != null)
+					pizzaFX.spawnClickFloat(npc);
+
 				datos.click();
-				// actualizar render
 				render();
 			}
-
 		});
-		pizzaLabel.revalidate();
-		pizzaLabel.repaint();
 	}
 
 	// filas de mejoras
 	private void construirMejorasUI() {
-
 		panelMejoras.removeAll();
 		labelsCoste.clear();
 		botonesCompra.clear();
@@ -227,12 +243,10 @@ public class Interfaz extends JFrame {
 			btnCompra.setBackground(BTN_VERDE_OK);
 			btnCompra.setPreferredSize(new Dimension(72, 34));
 			btnCompra.setMaximumSize(new Dimension(72, 34));
-			// centra texto bien
 			btnCompra.setHorizontalAlignment(SwingConstants.CENTER);
 			btnCompra.setVerticalAlignment(SwingConstants.CENTER);
 			btnCompra.setMargin(new Insets(0, 12, 0, 12));
 
-			// accion del boton de compra
 			btnCompra.addActionListener(ev -> {
 				if (datos.verificarCompra(m2.getCoste())) {
 					m2.comprar(datos);
@@ -268,17 +282,14 @@ public class Interfaz extends JFrame {
 			btnCompra.setBackground(BTN_VERDE_OK);
 			btnCompra.setPreferredSize(new Dimension(72, 34));
 			btnCompra.setMaximumSize(new Dimension(72, 34));
-			// centra texto bien
 			btnCompra.setHorizontalAlignment(SwingConstants.CENTER);
 			btnCompra.setVerticalAlignment(SwingConstants.CENTER);
 			btnCompra.setMargin(new Insets(0, 12, 0, 12));
 
-			// accion de boton de compra
 			btnCompra.addActionListener(ev -> {
 				if (datos.verificarCompra(m.getCoste())) {
 					m.comprar(datos);
 					fila.flash(new Color(210, 255, 210), 120);
-					// flash verde suave
 					render();
 				}
 			});
@@ -298,18 +309,7 @@ public class Interfaz extends JFrame {
 	}
 
 	private String formatAbreviado(long n) {
-
-		final String[] sufijos = { "", "K", // 10^3
-				"M", // 10^6
-				"B", // 10^9
-				"T", // 10^12
-				"Qa", // 10^15
-				"Qi", // 10^18
-				"Sx", // 10^21
-				"Sp", // 10^24
-				"Oc", // 10^27
-				"No" // 10^30
-		};
+		final String[] sufijos = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No" };
 
 		if (n < 10_000)
 			return String.valueOf(n);
@@ -322,42 +322,36 @@ public class Interfaz extends JFrame {
 			indice++;
 		}
 
-		// evitar que 1.0M salga como 1000.0K
 		if (valor >= 999.5 && indice < sufijos.length - 1) {
 			valor /= 1_000.0;
 			indice++;
 		}
 
-		if (valor >= 100) {
+		if (valor >= 100)
 			return String.format(Locale.US, "%.0f%s", valor, sufijos[indice]);
-		} else if (valor >= 10) {
+		if (valor >= 10)
 			return String.format(Locale.US, "%.1f%s", valor, sufijos[indice]);
-		} else {
-			return String.format(Locale.US, "%.2f%s", valor, sufijos[indice]);
-		}
+		return String.format(Locale.US, "%.2f%s", valor, sufijos[indice]);
 	}
 
 	public void render() {
-
 		lblNum.setText(nf.format((long) datos.getNum()));
-
-		lblNps.setText(String.format("🍕/s: %.2f ", datos.getNps()));
+		String nps = String.format("🍕/s %.2f ", datos.getNps());
 
 		double npc = datos.getClickIncremento() + datos.getNps() / 50;
 		double npcAuto = datos.getPeriodoAutoClicker();
 		if (datos.getNivelAutoClicker() == 0) {
-			// si no esta comprado no se enseña infor
-			lblNpc.setText(String.format("Chef: +%.2f 🍕 ", npc));
+			lblNps.setText(nps);
 		} else {
-			// cuando se compra se enseña
-			lblNpc.setText(String.format("Chef: +%.2f 🍕 | Cocineros: cada %.2fs ", npc, npcAuto));
+			lblNps.setText(nps + String.format("  |  Cocineros +%.2f🍕 cada %.2fs ", npc, npcAuto));
 		}
 
-		if (datos.autoCickerPulsado()) {
-			feedbackBotonPizza();
+		// halo autoclick
+		if (datos.autoClickerPulsado()) {
+			notifyAutoClickFX();
 		}
 
-		// Render de mejoras activas primer bloque
+		// Render mejoras clicker
 		for (int i = 0; i < mejorasClicker.size(); i++) {
 			Mejora m = mejorasClicker.get(i);
 			JLabel lbl = labelsCoste.get(i);
@@ -366,9 +360,6 @@ public class Interfaz extends JFrame {
 			boolean unlock = m.desbloquado(datos.getMaximo());
 
 			if (!unlock) {
-				// ESTADO bloqueado
-				lbl.setFont(emoji);
-				btn.setFont(emoji);
 				lbl.setText("🔒 Requiere " + (formatAbreviado((int) m.getCoste())) + " 🍕");
 				btn.setText("🔒");
 				btn.setBackground(BTN_ROJO_LOCK);
@@ -376,19 +367,14 @@ public class Interfaz extends JFrame {
 				btn.setCursor(Cursor.getDefaultCursor());
 			} else {
 				lbl.setText(String.format("%s [ %d ]", m.getNombre(), m.getNivel()));
-
-				long coste = (long) m.getCoste();
-				btn.setText(formatAbreviado(coste));
+				btn.setText(formatAbreviado((long) m.getCoste()));
 
 				boolean canBuy = datos.verificarCompra(m.getCoste());
-
 				if (canBuy) {
-					// ESTADO se puede comprar
 					btn.setBackground(BTN_VERDE_OK);
 					btn.setEnabled(true);
 					btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 				} else {
-					// ESTADO desbloqueado pero no llega el dinero
 					btn.setBackground(BTN_GRIS_NO);
 					btn.setEnabled(false);
 					btn.setCursor(Cursor.getDefaultCursor());
@@ -396,7 +382,7 @@ public class Interfaz extends JFrame {
 			}
 		}
 
-		// Render de mejoras pasivas segundo bloque
+		// Render mejoras pasivas
 		int offset = mejorasClicker.size();
 		for (int i = 0; i < mejoras.size(); i++) {
 			Mejora m = mejoras.get(i);
@@ -406,9 +392,6 @@ public class Interfaz extends JFrame {
 			boolean unlock = m.desbloquado(datos.getMaximo());
 
 			if (!unlock) {
-				// ESTADO bloqueado
-				lbl.setFont(emoji);
-				btn.setFont(emoji);
 				lbl.setText("🔒 Requiere " + (formatAbreviado((int) m.getCoste())) + " 🍕");
 				btn.setText("🔒");
 				btn.setBackground(BTN_ROJO_LOCK);
@@ -416,19 +399,14 @@ public class Interfaz extends JFrame {
 				btn.setCursor(Cursor.getDefaultCursor());
 			} else {
 				lbl.setText(String.format("%s [ %d ]", m.getNombre(), m.getNivel()));
-
-				long coste = (long) m.getCoste();
-				btn.setText(formatAbreviado(coste));
+				btn.setText(formatAbreviado((long) m.getCoste()));
 
 				boolean canBuy = datos.verificarCompra(m.getCoste());
-
 				if (canBuy) {
-					// ESTADO se puede comprar
 					btn.setBackground(BTN_VERDE_OK);
 					btn.setEnabled(true);
 					btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 				} else {
-					// ESTADO desbloqueado pero no llega el dinero
 					btn.setBackground(BTN_GRIS_NO);
 					btn.setEnabled(false);
 					btn.setCursor(Cursor.getDefaultCursor());

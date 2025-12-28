@@ -4,7 +4,7 @@ public class Datos {
 // clase donde se guardas los datos base y funcionalidades esenciales del juego principal
 
 	private boolean autoClickerPulsado = false;
-	private double num = 9999990; // n de pizzas inicial
+	private double num = 999999990; // n de pizzas inicial
 	private double nps = 0; // n de pizzas/s iniciales
 	private double recordMaximo = 0;
 	private double clickIncremento = 1;
@@ -59,7 +59,7 @@ public class Datos {
 
 	}
 
-	public boolean autoCickerPulsado() {
+	public boolean autoClickerPulsado() {
 
 		boolean pulsacion = autoClickerPulsado;
 		autoClickerPulsado = false;

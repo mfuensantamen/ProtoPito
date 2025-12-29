@@ -1,10 +1,5 @@
-package protoPizza;
+package protoPizzaa;
 
-/**
- * Proyecto ProtoPizza.
- * Archivo: PizzaFXPane.java
- * Documentación JavaDoc generada para entender el código (núcleo + UI).
- */
 import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -24,52 +19,40 @@ import javax.swing.SwingConstants;
 import javax.swing.Timer;
 
 /**
- * Panel de efectos alrededor de la pizza (halos, textos flotantes, feedback de autoclick).
- * Solo efectos visuales; no modifica el modelo directamente.
+ * Capa de efectos visuales alrededor de la pizza.
+ * <p>
+ * Dibuja un halo cuando el auto-clicker pulsa y muestra textos flotantes del
+ * tipo "+X 🍕" al clickar. Este componente <b>no</b> modifica el modelo
+ * ({@link Datos}); solo recibe notificaciones desde {@link Interfaz}.
  */
+
 public class PizzaFXPane extends JLayeredPane {
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
 	private static final long serialVersionUID = 1L;
 
 	// --- HALO AUTOCLICK ---
+	/** Alpha actual del halo (0..1). */
 	private float haloAlpha = 0f;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Alpha objetivo temporal cuando llega un pulso de auto-click. */
 	private float haloTarget = 0f;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Momento del último pulso de halo (ms) para aplicar un intervalo mínimo. */
 	private long lastHaloPulseMs = 0L;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Intervalo mínimo entre halos (ms). */
 	private int haloMinIntervalMs = 90;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Tiempo de subida del halo (ms). */
 	private int haloRiseMs = 80;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Tiempo de caída del halo (ms). */
 	private int haloDecayMs = 180;
 
 	// --- estilo del halo (editable desde Interfaz) ---
+	/** Color del aro exterior del halo. */
 	private Color haloOuterColor = new Color(255, 215, 0); // amarillo
+	/** Color del aro interior del halo. */
 	private Color haloInnerColor = new Color(255, 245, 200); // amarillo claro
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Grosor del aro exterior del halo (px). */
 	private float haloOuterStroke = 8f; // ancho
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Grosor del aro interior del halo (px). */
 	private float haloInnerStroke = 4f;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	/** Padding extra alrededor de la pizza para calcular el tamaño del halo. */
 	private int haloPadding = 10; // más cerca = menor
 
 	// --- FLOATING LABELS ---
@@ -83,24 +66,25 @@ public class PizzaFXPane extends JLayeredPane {
 		int durationMs;
 	}
 
+	/** Textos flotantes activos (se actualizan en cada frame). */
 	private final List<FloatingFX> floats = new ArrayList<>();
-	/**
-	 * Temporizador Swing usado para animaciones o ticks.
-	 */
+	/** Timer de animación (~60 FPS) que actualiza halo y floats. */
 	private final Timer animTimer;
 
 	/**
-	 * Etiqueta Swing para mostrar información al jugador.
+	 * Label base (pizza). Se centra en doLayout() y se usa como referencia para el
+	 * halo.
 	 */
 	private final JLabel pizzaLabel;
+	/** Fuente para los textos flotantes. */
 	private final Font floatFont = new Font("Segoe UI Emoji", Font.BOLD, 14);
 
 	/**
-	 * Constructor de PizzaFXPane.
-	 * Inicializa el estado interno de la clase.
-	 * 
-	 * Parámetros:
-	 * @param pizzaLabel TODO
+	 * Crea la capa FX y registra el {@code pizzaLabel} como elemento base. También
+	 * arranca un {@link Timer} interno de ~60 FPS para animar halo y floats.
+	 *
+	 * @param pizzaLabel etiqueta que contiene la imagen de la pizza (se posiciona
+	 *                   centrada)
 	 */
 	public PizzaFXPane(JLabel pizzaLabel) {
 		setOpaque(false);
@@ -114,23 +98,20 @@ public class PizzaFXPane extends JLayeredPane {
 	}
 
 	/**
-	 * Método setHaloMinIntervalMs de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param ms TODO
+	 * Ajusta el intervalo mínimo entre pulsos de halo. Sirve para "capar"
+	 * visualmente el halo si el auto-clicker va muy rápido.
+	 *
+	 * @param ms milisegundos mínimos entre halos (se fuerza a mínimo 16ms)
 	 */
 	public void setHaloMinIntervalMs(int ms) {
 		haloMinIntervalMs = Math.max(16, ms);
 	}
 
 	/**
-	 * Método setHaloColors de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param outer TODO
-	 * @param inner TODO
+	 * Cambia los colores del halo (borde exterior e interior).
+	 *
+	 * @param outer color exterior (si es null, se mantiene)
+	 * @param inner color interior (si es null, se mantiene)
 	 */
 	public void setHaloColors(Color outer, Color inner) {
 		if (outer != null)
@@ -140,12 +121,10 @@ public class PizzaFXPane extends JLayeredPane {
 	}
 
 	/**
-	 * Método setHaloStrokes de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param outerStroke TODO
-	 * @param innerStroke TODO
+	 * Cambia el grosor del halo.
+	 *
+	 * @param outerStroke grosor del aro exterior (px)
+	 * @param innerStroke grosor del aro interior (px)
 	 */
 	public void setHaloStrokes(float outerStroke, float innerStroke) {
 		if (outerStroke > 0)
@@ -155,19 +134,18 @@ public class PizzaFXPane extends JLayeredPane {
 	}
 
 	/**
-	 * Método setHaloPadding de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param paddingPx TODO
+	 * Ajusta el padding del halo respecto a la pizza. Menor padding = halo más
+	 * pegado a la pizza.
+	 *
+	 * @param paddingPx padding en píxeles (no puede ser negativo)
 	 */
 	public void setHaloPadding(int paddingPx) {
 		this.haloPadding = Math.max(0, paddingPx);
 	}
 
 	/**
-	 * Método notifyAutoClickTick de PizzaFXPane.
-	 * Ver descripción en el código/uso.
+	 * Notifica que ha ocurrido un auto-click. Esto dispara un pulso de halo (sube
+	 * alpha hacia un target) respetando el intervalo mínimo.
 	 */
 	public void notifyAutoClickTick() {
 		long now = System.currentTimeMillis();
@@ -178,11 +156,10 @@ public class PizzaFXPane extends JLayeredPane {
 	}
 
 	/**
-	 * Método spawnClickFloat de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param pizzasPorClick TODO
+	 * Crea un texto flotante del estilo "+X 🍕" cerca de la pizza.
+	 *
+	 * @param pizzasPorClick cantidad ganada en ese click (se formatea con 2
+	 *                       decimales o entero si aplica)
 	 */
 	public void spawnClickFloat(double pizzasPorClick) {
 		String txt = String.format("+%.2f 🍕", pizzasPorClick);
@@ -237,10 +214,6 @@ public class PizzaFXPane extends JLayeredPane {
 	}
 
 	@Override
-	/**
-	 * Método doLayout de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 */
 	public void doLayout() {
 		super.doLayout();
 		Dimension pref = pizzaLabel.getPreferredSize();
@@ -255,10 +228,6 @@ public class PizzaFXPane extends JLayeredPane {
 		pizzaLabel.setBounds(x, y, pw, ph);
 	}
 
-	/**
-	 * Método step de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 */
 	private void step() {
 		long now = System.currentTimeMillis();
 
@@ -301,13 +270,6 @@ public class PizzaFXPane extends JLayeredPane {
 	}
 
 	@Override
-	/**
-	 * Método paintChildren de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param g TODO
-	 */
 	protected void paintChildren(Graphics g) {
 		super.paintChildren(g);
 
@@ -328,13 +290,6 @@ public class PizzaFXPane extends JLayeredPane {
 	}
 
 	@Override
-	/**
-	 * Método paintComponent de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param g TODO
-	 */
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 

@@ -1,10 +1,5 @@
-package protoPizza;
+package protoPizzaa;
 
-/**
- * Proyecto ProtoPizza.
- * Archivo: RoundedButton.java
- * Documentación JavaDoc generada para entender el código (núcleo + UI).
- */
 import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -16,21 +11,21 @@ import javax.swing.JButton;
 import javax.swing.SwingConstants;
 
 /**
- * Botón con estilo redondeado (custom painting).
- * Reutilizable para mejoras y acciones secundarias.
+ * Botón simple con bordes redondeados.
+ * <p>
+ * Se usa para botones de compra de mejoras (UI secundaria), donde queremos un
+ * estilo consistente. Pinta manualmente fondo, borde y texto centrado.
  */
 public class RoundedButton extends JButton {
-	// clase para generar boton con bordes redondeados
 
+	/** Radio de redondeo (px). */
 	private final int radius;
 
 	/**
-	 * Constructor de RoundedButton.
-	 * Inicializa el estado interno de la clase.
-	 * 
-	 * Parámetros:
-	 * @param text TODO
-	 * @param radius TODO
+	 * Crea un botón redondeado.
+	 *
+	 * @param text   texto del botón
+	 * @param radius radio de redondeo en píxeles
 	 */
 	public RoundedButton(String text, int radius) {
 		super(text);
@@ -41,51 +36,45 @@ public class RoundedButton extends JButton {
 		setBorderPainted(false);
 		setOpaque(false);
 
-		// márgenes
 		setMargin(new Insets(0, 12, 0, 12));
 		setHorizontalAlignment(SwingConstants.CENTER);
 		setVerticalAlignment(SwingConstants.CENTER);
 	}
 
-	@Override
 	/**
-	 * Método paintComponent de RoundedButton.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param g TODO
+	 * Pinta el botón con antialiasing.
+	 * <p>
+	 * 1) Fondo redondeado con el background actual<br/>
+	 * 2) Borde semitransparente<br/>
+	 * 3) Texto centrado (calculando baseline con métricas de fuente)
+	 *
+	 * @param g contexto gráfico
 	 */
+	@Override
 	protected void paintComponent(Graphics g) {
 		Graphics2D g2 = (Graphics2D) g.create();
 		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-		// fondo
 		g2.setColor(getBackground());
 		g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
 
-		// borde suave
 		g2.setColor(new Color(0, 0, 0, 50));
 		g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
 
-		// texto
 		String text = getText();
 		if (text != null && !text.isEmpty()) {
 			g2.setFont(getFont());
 			FontMetrics fm = g2.getFontMetrics();
 
-			// padding para el texto
 			Insets in = getInsets();
 			int availableW = getWidth() - in.left - in.right;
 			int availableH = getHeight() - in.top - in.bottom;
 
 			int textWidth = fm.stringWidth(text);
 
-			// centrado horizontal dentro del área útil
 			int x = in.left + (availableW - textWidth) / 2;
-
-			// centrado vertical por baseline dentro del área útil
 			int y = in.top + (availableH - fm.getHeight()) / 2 + fm.getAscent();
-			y += 3;
+			y += 3; // ajuste visual
 
 			g2.setColor(getForeground());
 			g2.drawString(text, x, y);

@@ -1,16 +1,10 @@
-package protoPizza;
+package protoPizzaa;
 
-/**
- * Proyecto ProtoPizza.
- * Archivo: Interfaz.java
- * Documentación JavaDoc generada para entender el código (núcleo + UI).
- */
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Image;
 import java.awt.Insets;
@@ -39,44 +33,71 @@ import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.EtchedBorder;
 
-@SuppressWarnings("serial")
 /**
- * Ventana principal (Swing) del juego ProtoPizza. Responsable de construir la
- * UI, conectar eventos y renderizar el estado del modelo (Datos). Coordina
- * efectos visuales (FX) y botones de mejoras.
+ * Ventana principal del juego (UI + coordinador).
+ * <p>
+ * Esta clase crea y organiza los componentes Swing, conecta eventos (click en
+ * pizza y compra de mejoras) y "renderiza" los valores del modelo
+ * {@link Datos}.
+ *
+ * <h2>Idea clave</h2>
+ * <ul>
+ * <li>El estado vive en {@link Datos}.</li>
+ * <li>Las mejoras son instancias de {@link Mejora}.</li>
+ * <li>La interfaz se refresca con {@link #render()} en cada tick del
+ * Timer.</li>
+ * </ul>
  */
+@SuppressWarnings("serial")
 public class Interfaz extends JFrame {
 
 	// etiquetas
+	/** Label principal que muestra el número de pizzas actuales. */
 	private JLabel lblNum;
-	/**
-	 * Etiqueta Swing para mostrar información al jugador.
-	 */
+	/** Label que muestra la producción pasiva (pizzas por segundo). */
 	private JLabel lblNps;
+//	private JLabel lblNpc;
 
 	// imagen clicker
+	/** Icono normal (pizza a tamaño estándar). */
 	ImageIcon iconNormal;
+	/** Icono al hacer click (pizza ligeramente más grande) para feedback. */
 	ImageIcon iconBig;
-	/**
-	 * Etiqueta Swing para mostrar información al jugador.
-	 */
+	/** Label que contiene la imagen de la pizza (se coloca en el centro). */
 	private JLabel pizzaLabel;
 
 	// capa de FX (floats + halo auto)
+	/** Capa de efectos alrededor de la pizza (halo + textos flotantes). */
 	private PizzaFXPane pizzaFX;
+
 	// panel
+	/** Panel contenedor de la lista de mejoras (con scroll). */
 	private JPanel panelMejoras;
 	// seccion con scroll
+	/** Scroll que envuelve a {@link #panelMejoras}. */
 	private JScrollPane scrollMejoras;
 	// listas
+	/**
+	 * Lista de mejoras activas (click). Se usa para construir UI y actualizarla en
+	 * render().
+	 */
 	private List<Mejora> mejorasClicker = new ArrayList<>();
+	/**
+	 * Lista de mejoras pasivas (NPS). Se usa para construir UI y actualizarla en
+	 * render().
+	 */
 	private List<Mejora> mejoras = new ArrayList<>();
+	/** Labels que muestran coste o requisito (uno por mejora). */
 	private List<JLabel> labelsCoste = new ArrayList<>();
+	/**
+	 * Botones de compra (uno por mejora) para habilitar/deshabilitar según fondos.
+	 */
 	private List<JButton> botonesCompra = new ArrayList<>();
-	private List<JLabel> labelsIcono = new ArrayList<>();
 	// motor
+	/** Modelo del juego (estado numérico y lógica base). */
 	private Datos datos;
 
+	/** Fuente emoji usada para textos con 🍕 y candados. */
 	Font emoji = new Font("Segoe UI Emoji", Font.BOLD, 16);
 
 	// colores centralizados para estados del boton
@@ -85,6 +106,10 @@ public class Interfaz extends JFrame {
 	private static final Color BTN_ROJO_LOCK = new Color(250, 180, 180);
 
 	// NumberFormat en español sin decimales + con separador de miles
+	/**
+	 * Formateador numérico (locale es-ES) para mostrar decimales de forma
+	 * consistente.
+	 */
 	private final NumberFormat nf = NumberFormat.getInstance(Locale.forLanguageTag("es-ES"));
 	{
 		nf.setMaximumFractionDigits(0);
@@ -93,15 +118,12 @@ public class Interfaz extends JFrame {
 	}
 
 	/**
-	 * Crea la ventana principal del juego y conecta modelo + UI. Construye la
-	 * interfaz, genera botones de mejoras, conecta eventos y pinta el primer
-	 * estado.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param datos          TODO
-	 * @param mejoras        TODO
-	 * @param mejorasClicker TODO
+	 * Construye la ventana principal.
+	 *
+	 * @param datos          modelo del juego
+	 * @param mejoras        lista de mejoras pasivas
+	 * @param mejorasClicker lista de mejoras activas
+	 * @throws IOException si falla la carga de recursos (pizza.png)
 	 */
 	public Interfaz(Datos datos, List<Mejora> mejoras, List<Mejora> mejorasClicker) throws IOException {
 		this.datos = datos;
@@ -113,11 +135,6 @@ public class Interfaz extends JFrame {
 		render();
 	}
 
-	/**
-	 * Construye todos los componentes Swing de la ventana (layout, labels, paneles,
-	 * botón pizza). No debería contener lógica de juego; solo presentación y wiring
-	 * básico.
-	 */
 	private void construirUI() throws IOException {
 		setTitle("ProtoPito - Incremental");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -162,11 +179,17 @@ public class Interfaz extends JFrame {
 		lblNps.setAlignmentX(Component.CENTER_ALIGNMENT);
 		lblNps.setBorder(new EmptyBorder(6, 0, 6, 0));
 
+//		lblNpc = new JLabel("ERROR");
+//		lblNpc.setForeground(new Color(255, 228, 225));
+//		lblNpc.setFont(emoji);
+//		lblNpc.setAlignmentX(Component.CENTER_ALIGNMENT);
+//		lblNpc.setBorder(new EmptyBorder(6, 0, 6, 0));
+
 		panelNums.add(lblNps);
 //		panelNums.add(lblNpc);
 
 		// PIZZA
-		var url = getClass().getResource("/pizzaa.png");
+		var url = getClass().getResource("/pizza.png");
 		if (url == null)
 			throw new RuntimeException("No se encuentra el archivo pizza.png");
 
@@ -208,17 +231,14 @@ public class Interfaz extends JFrame {
 		setVisible(true);
 	}
 
-	/**
-	 * Conecta listeners (mouse/click) para pizza y mejoras. Centraliza aquí la
-	 * interacción del jugador con el modelo.
-	 */
 	private void conectarEventos() {
 		feedbackBotonPizza();
+		render();
 	}
 
 	/**
-	 * Notifica al panel de FX que ha ocurrido un autoclick. Se usa para sincronizar
-	 * halo/floaters con el motor pasivo.
+	 * Dispara el halo/efecto visual asociado al auto-clicker. Se invoca cuando el
+	 * modelo indica que ha ocurrido un auto-click.
 	 */
 	public void notifyAutoClickFX() {
 		if (pizzaFX != null)
@@ -226,21 +246,20 @@ public class Interfaz extends JFrame {
 	}
 
 	/**
-	 * Aplica feedback visual al botón de la pizza (hover/click). Puede ajustar
-	 * bordes/colores y disparar pequeñas animaciones.
+	 * Añade el listener principal al click sobre la pizza.
+	 * <p>
+	 * En mousePressed:
+	 * <ul>
+	 * <li>llama a {@link Datos#click()}</li>
+	 * <li>calcula pizzasPorClick (NPC efectivo)</li>
+	 * <li>crea el float "+X 🍕" en {@link PizzaFXPane}</li>
+	 * </ul>
 	 */
 	public void feedbackBotonPizza() {
 		int feedbackMs = 90;
 
 		pizzaLabel.addMouseListener(new MouseAdapter() {
 			@Override
-			/**
-			 * Método mousePressed de Interfaz. Ver descripción en el código/uso.
-			 * 
-			 * Parámetros:
-			 * 
-			 * @param e TODO
-			 */
 			public void mousePressed(MouseEvent e) {
 				pizzaLabel.setIcon(iconBig);
 				pizzaLabel.revalidate();
@@ -265,13 +284,7 @@ public class Interfaz extends JFrame {
 	}
 
 	// filas de mejoras
-	/**
-	 * Crea dinámicamente los botones/paneles de mejoras (click y pasivas) en base a
-	 * las listas de mejoras. Deja referencias para poder actualizar estados
-	 * (enabled/locked/precio) durante el render.
-	 */
 	private void construirMejorasUI() {
-		labelsIcono.clear();
 		panelMejoras.removeAll();
 		labelsCoste.clear();
 		botonesCompra.clear();
@@ -297,15 +310,6 @@ public class Interfaz extends JFrame {
 			btnCompra.setVerticalAlignment(SwingConstants.CENTER);
 			btnCompra.setMargin(new Insets(0, 12, 0, 12));
 
-			JLabel lblIcono = new JLabel(m2.getIcono());
-			lblIcono.setFont(emoji);
-			lblIcono.setBorder(new EmptyBorder(6, 0, 6, 0));
-			JPanel panelDerecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-			panelDerecha.setOpaque(false);
-			panelDerecha.add(lblIcono);
-			panelDerecha.add(btnCompra);
-			labelsIcono.add(lblIcono);
-
 			btnCompra.addActionListener(ev -> {
 				if (datos.verificarCompra(m2.getCoste())) {
 					m2.comprar(datos);
@@ -318,7 +322,7 @@ public class Interfaz extends JFrame {
 			botonesCompra.add(btnCompra);
 
 			fila.add(lblCoste, BorderLayout.CENTER);
-			fila.add(panelDerecha, BorderLayout.EAST);
+			fila.add(btnCompra, BorderLayout.EAST);
 
 			panelMejoras.add(fila);
 			panelMejoras.add(Box.createVerticalStrut(6));
@@ -345,15 +349,6 @@ public class Interfaz extends JFrame {
 			btnCompra.setVerticalAlignment(SwingConstants.CENTER);
 			btnCompra.setMargin(new Insets(0, 12, 0, 12));
 
-			JLabel lblIcono = new JLabel(m.getIcono());
-			lblIcono.setFont(emoji);
-			lblIcono.setBorder(new EmptyBorder(6, 0, 6, 0));
-			JPanel panelDerecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-			panelDerecha.setOpaque(false);
-			panelDerecha.add(lblIcono);
-			panelDerecha.add(btnCompra);
-			labelsIcono.add(lblIcono);
-
 			btnCompra.addActionListener(ev -> {
 				if (datos.verificarCompra(m.getCoste())) {
 					m.comprar(datos);
@@ -366,7 +361,7 @@ public class Interfaz extends JFrame {
 			botonesCompra.add(btnCompra);
 
 			fila.add(lblCoste, BorderLayout.CENTER);
-			fila.add(panelDerecha, BorderLayout.EAST);
+			fila.add(btnCompra, BorderLayout.EAST);
 
 			panelMejoras.add(fila);
 			panelMejoras.add(Box.createVerticalStrut(6));
@@ -376,15 +371,6 @@ public class Interfaz extends JFrame {
 		panelMejoras.repaint();
 	}
 
-	/**
-	 * Formatea números grandes en forma abreviada (k, M, B etc.) para la UI.
-	 * Devuelve un String listo para mostrar en labels/botones.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param n TODO
-	 * @return TODO
-	 */
 	private String formatAbreviado(long n) {
 		final String[] sufijos = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No" };
 
@@ -412,15 +398,10 @@ public class Interfaz extends JFrame {
 	}
 
 	/**
-	 * Refresca la UI leyendo el estado del modelo (Datos). Actualiza textos,
-	 * estados de botones, desbloqueos y dispara FX cuando toca.
+	 * Refresca toda la UI con el estado actual del modelo. Se llama en cada tick
+	 * del Timer (aprox. cada 15 ms).
 	 */
 	public void render() {
-		// anti crash
-		if (labelsCoste.isEmpty() || botonesCompra.isEmpty() || labelsIcono.isEmpty()) {
-			return;
-		}
-
 		lblNum.setText(nf.format((long) datos.getNum()));
 		String nps = String.format("🍕/s %.2f ", datos.getNps());
 
@@ -442,21 +423,18 @@ public class Interfaz extends JFrame {
 			Mejora m = mejorasClicker.get(i);
 			JLabel lbl = labelsCoste.get(i);
 			JButton btn = botonesCompra.get(i);
-			JLabel ico = labelsIcono.get(i);
 
 			boolean unlock = m.desbloquado(datos.getMaximo());
 
 			if (!unlock) {
 				lbl.setText("🔒 Requiere " + (formatAbreviado((int) m.getCoste())) + " 🍕");
 				btn.setText("🔒");
-				ico.setText("");
 				btn.setBackground(BTN_ROJO_LOCK);
 				btn.setEnabled(false);
 				btn.setCursor(Cursor.getDefaultCursor());
 			} else {
 				lbl.setText(String.format("%s [ %d ]", m.getNombre(), m.getNivel()));
 				btn.setText(formatAbreviado((long) m.getCoste()));
-				ico.setText(m.getIcono());
 
 				boolean canBuy = datos.verificarCompra(m.getCoste());
 				if (canBuy) {
@@ -477,21 +455,18 @@ public class Interfaz extends JFrame {
 			Mejora m = mejoras.get(i);
 			JLabel lbl = labelsCoste.get(offset + i);
 			JButton btn = botonesCompra.get(offset + i);
-			JLabel ico = labelsIcono.get(offset + i);
 
 			boolean unlock = m.desbloquado(datos.getMaximo());
 
 			if (!unlock) {
 				lbl.setText("🔒 Requiere " + (formatAbreviado((int) m.getCoste())) + " 🍕");
 				btn.setText("🔒");
-				ico.setText("");
 				btn.setBackground(BTN_ROJO_LOCK);
 				btn.setEnabled(false);
 				btn.setCursor(Cursor.getDefaultCursor());
 			} else {
-				lbl.setText(String.format("%s [ %d ] ", m.getNombre(), m.getNivel()));
+				lbl.setText(String.format("%s [ %d ]", m.getNombre(), m.getNivel()));
 				btn.setText(formatAbreviado((long) m.getCoste()));
-				ico.setText(m.getIcono());
 
 				boolean canBuy = datos.verificarCompra(m.getCoste());
 				if (canBuy) {

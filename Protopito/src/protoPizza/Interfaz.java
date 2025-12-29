@@ -1,35 +1,31 @@
 package protoPizza;
 
-/**
- * Proyecto ProtoPizza.
- * Archivo: Interfaz.java
- * Documentación JavaDoc generada para entender el código (núcleo + UI).
- */
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Image;
-import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
+import java.io.File;
 import java.io.IOException;
 
 import javax.imageio.ImageIO;
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -40,51 +36,99 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.EtchedBorder;
 
 @SuppressWarnings("serial")
-/**
- * Ventana principal (Swing) del juego ProtoPizza. Responsable de construir la
- * UI, conectar eventos y renderizar el estado del modelo (Datos). Coordina
- * efectos visuales (FX) y botones de mejoras.
- */
 public class Interfaz extends JFrame {
 
 	// etiquetas
 	private JLabel lblNum;
-	/**
-	 * Etiqueta Swing para mostrar información al jugador.
-	 */
 	private JLabel lblNps;
 
-	// imagen clicker
-	ImageIcon iconNormal;
-	ImageIcon iconBig;
-	/**
-	 * Etiqueta Swing para mostrar información al jugador.
-	 */
+	// cache UI (evita trabajo pesado cada frame)
+	private long lastShownNum = Long.MIN_VALUE;
+	private String lastShownNpsText = "";
+	private boolean npsIconConfigured = false;
+
+	// iconos pizza
+	private ImageIcon iconNormal;
+	private ImageIcon iconBig;
+
+	// icono slice para NPS
+	private ImageIcon pizzaSliceIcon;
+
+	// pizza label
 	private JLabel pizzaLabel;
 
-	// capa de FX (floats + halo auto)
+	// FX (floats + halo auto)
 	private PizzaFXPane pizzaFX;
-	// panel
+
+	// panel mejoras
 	private JPanel panelMejoras;
-	// seccion con scroll
 	private JScrollPane scrollMejoras;
+
 	// listas
 	private List<Mejora> mejorasClicker = new ArrayList<>();
 	private List<Mejora> mejoras = new ArrayList<>();
-	private List<JLabel> labelsCoste = new ArrayList<>();
-	private List<JButton> botonesCompra = new ArrayList<>();
-	private List<JLabel> labelsIcono = new ArrayList<>();
+	private List<RoundedButton> botonesMejoras = new ArrayList<>();
+
 	// motor
 	private Datos datos;
 
-	Font emoji = new Font("Segoe UI Emoji", Font.BOLD, 16);
+	private final Font emoji = new Font("Segoe UI Emoji", Font.BOLD, 16);
 
-	// colores centralizados para estados del boton
+	private static final Color BTN_FLASH = new Color(170, 255, 170);
+	private static final String PROP_FLASH_UNTIL = "flashUntil";
+
 	private static final Color BTN_VERDE_OK = new Color(200, 255, 200);
 	private static final Color BTN_GRIS_NO = new Color(210, 210, 210);
 	private static final Color BTN_ROJO_LOCK = new Color(250, 180, 180);
 
-	// NumberFormat en español sin decimales + con separador de miles
+	private static final ImageIcon ICON_LOCK = new ImageIcon(Interfaz.class.getResource("/img/link.png"));
+
+	// cache iconos mejoras
+	private final Map<String, ImageIcon> iconCache = new HashMap<>();
+
+	private ImageIcon loadIcon(String path, int size) {
+		if (path == null || path.isBlank())
+			return null;
+
+		String normalized = path.startsWith("/") ? path : ("/" + path);
+		String key = normalized + "@" + size;
+
+		ImageIcon cached = iconCache.get(key);
+		if (cached != null)
+			return cached;
+
+		try {
+			var url = getClass().getResource(normalized);
+			if (url != null) {
+				BufferedImage img = ImageIO.read(url);
+				Image scaled = img.getScaledInstance(size, size, Image.SCALE_SMOOTH);
+				ImageIcon icon = new ImageIcon(scaled);
+				iconCache.put(key, icon);
+				return icon;
+			}
+
+			// fallback file (solo para debug local)
+			File f = new File(path);
+			if (f.exists()) {
+				BufferedImage img = ImageIO.read(f);
+				Image scaled = img.getScaledInstance(size, size, Image.SCALE_SMOOTH);
+				ImageIcon icon = new ImageIcon(scaled);
+				iconCache.put(key, icon);
+				System.err.println("Icono cargado por File (debug): " + f.getAbsolutePath());
+				return icon;
+			}
+
+			System.err.println("❌ Icono NO encontrado: " + path);
+			return null;
+
+		} catch (IOException e) {
+			System.err.println("❌ Error leyendo icono: " + path);
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	// NumberFormat en español sin decimales + separador
 	private final NumberFormat nf = NumberFormat.getInstance(Locale.forLanguageTag("es-ES"));
 	{
 		nf.setMaximumFractionDigits(0);
@@ -92,40 +136,23 @@ public class Interfaz extends JFrame {
 		nf.setGroupingUsed(true);
 	}
 
-	/**
-	 * Crea la ventana principal del juego y conecta modelo + UI. Construye la
-	 * interfaz, genera botones de mejoras, conecta eventos y pinta el primer
-	 * estado.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param datos          TODO
-	 * @param mejoras        TODO
-	 * @param mejorasClicker TODO
-	 */
 	public Interfaz(Datos datos, List<Mejora> mejoras, List<Mejora> mejorasClicker) throws IOException {
 		this.datos = datos;
 		this.mejoras = mejoras;
 		this.mejorasClicker = mejorasClicker;
+
 		construirUI();
 		construirMejorasUI();
 		conectarEventos();
 		render();
 	}
 
-	/**
-	 * Construye todos los componentes Swing de la ventana (layout, labels, paneles,
-	 * botón pizza). No debería contener lógica de juego; solo presentación y wiring
-	 * básico.
-	 */
 	private void construirUI() throws IOException {
-		setTitle("ProtoPito - Incremental");
+		setTitle("ProtoPizza - Clicker/Incremental");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setMinimumSize(new Dimension(600, 850));
-
 		getContentPane().setLayout(new BorderLayout(0, 0));
 
-		// panel de arriba
 		JPanel panelSuperior = new JPanel();
 		panelSuperior.setPreferredSize(new Dimension(850, 380));
 		panelSuperior.setBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null));
@@ -133,72 +160,83 @@ public class Interfaz extends JFrame {
 		panelSuperior.setLayout(new BorderLayout(0, 0));
 		getContentPane().add(panelSuperior, BorderLayout.NORTH);
 
-		// contenedor para num + nps + pizza (CENTRO)
 		JPanel panelNums = new JPanel();
-		panelNums.setBorder(new EmptyBorder(16, 20, 8, 20)); // CAMBIO: menos padding abajo
+		panelNums.setBorder(new EmptyBorder(16, 20, 8, 20));
 		panelNums.setOpaque(false);
 		panelNums.setLayout(new BoxLayout(panelNums, BoxLayout.Y_AXIS));
 		panelSuperior.add(panelNums, BorderLayout.CENTER);
 
-		// CAMBIO: footer abajo del todo (SOUTH), no ocupa hueco en el centro
 		JLabel pieBoton = new JLabel("Pulsa para cocinar Pizzas");
 		pieBoton.setForeground(new Color(225, 208, 205));
-		pieBoton.setFont(new Font("Segoe UI Emoji", Font.BOLD, 9)); // CAMBIO: más pequeño
+		pieBoton.setFont(new Font("Segoe UI Emoji", Font.BOLD, 9));
 		pieBoton.setHorizontalAlignment(SwingConstants.CENTER);
-		pieBoton.setBorder(new EmptyBorder(0, 0, 6, 0)); // CAMBIO: pegado al borde inferior
+		pieBoton.setBorder(new EmptyBorder(0, 0, 6, 0));
 		panelSuperior.add(pieBoton, BorderLayout.SOUTH);
 
-		// etiqueta num
 		lblNum = new JLabel("0");
 		lblNum.setForeground(new Color(255, 215, 0));
 		lblNum.setFont(new Font("Consolas", Font.BOLD, 46));
 		lblNum.setAlignmentX(Component.CENTER_ALIGNMENT);
 		panelNums.add(lblNum);
 
-		// etiqueta nps
-		lblNps = new JLabel("ERROR");
+		// --- CARGA RECURSOS (ANTES de usar icons) ---
+		var urlPizza = getClass().getResource("/img/pizza.png");
+		if (urlPizza == null)
+			throw new RuntimeException("No se encuentra /img/pizza.png");
+
+		var urlSlice = getClass().getResource("/img/pizza_slice.png");
+		if (urlSlice == null)
+			throw new RuntimeException("No se encuentra /img/pizza_slice.png");
+
+		BufferedImage sliceImg = ImageIO.read(urlSlice);
+		pizzaSliceIcon = new ImageIcon(sliceImg.getScaledInstance(20, 20, Image.SCALE_SMOOTH));
+
+		BufferedImage pizzaImg = ImageIO.read(urlPizza);
+		this.iconNormal = new ImageIcon(pizzaImg.getScaledInstance(200, 200, Image.SCALE_SMOOTH));
+		this.iconBig = new ImageIcon(pizzaImg.getScaledInstance(207, 207, Image.SCALE_SMOOTH));
+
+		// NPS (icono + texto)
+		lblNps = new JLabel("/s 0,00");
 		lblNps.setForeground(new Color(255, 228, 225));
 		lblNps.setFont(emoji);
 		lblNps.setAlignmentX(Component.CENTER_ALIGNMENT);
 		lblNps.setBorder(new EmptyBorder(6, 0, 6, 0));
-
+		lblNps.setIcon(pizzaSliceIcon);
+		lblNps.setHorizontalTextPosition(SwingConstants.RIGHT);
+		lblNps.setIconTextGap(6);
 		panelNums.add(lblNps);
-//		panelNums.add(lblNpc);
 
-		// PIZZA
-		var url = getClass().getResource("/pizzaa.png");
-		if (url == null)
-			throw new RuntimeException("No se encuentra el archivo pizza.png");
-
-		BufferedImage pizzaImg = ImageIO.read(url);
-		this.iconNormal = new ImageIcon(pizzaImg.getScaledInstance(200, 200, Image.SCALE_SMOOTH));
-		this.iconBig = new ImageIcon(pizzaImg.getScaledInstance(207, 207, Image.SCALE_SMOOTH));
-
+		// PIZZA label
 		this.pizzaLabel = new JLabel(this.iconNormal);
 		this.pizzaLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		this.pizzaLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 		this.pizzaLabel.setPreferredSize(new Dimension(208, 208));
 
-		// FX Pane (floats + halo)
+		// FX pane
 		pizzaFX = new PizzaFXPane(this.pizzaLabel);
 		pizzaFX.setOpaque(false);
 
-		// CAMBIO: halo más cerca, amarillo, y más ancho
+		// halo
 		pizzaFX.setHaloColors(new Color(255, 215, 0), new Color(255, 245, 200));
 		pizzaFX.setHaloStrokes(12f, 8f);
 		pizzaFX.setHaloPadding(2);
 
+		// slice icon en floats
+		pizzaFX.setSliceIcon("/img/pizza_slice.png", 22);
+
 		pizzaFX.setAlignmentX(Component.CENTER_ALIGNMENT);
-		pizzaFX.setPreferredSize(new Dimension(260, 260)); // CAMBIO: evita corte abajo + ajusta al halo
+		pizzaFX.setPreferredSize(new Dimension(260, 260));
 		pizzaFX.setMaximumSize(new Dimension(280, 280));
 
 		panelNums.add(pizzaFX);
 
-		// zona central de mejoras
+		// zona central mejoras
 		panelMejoras = new JPanel();
 		panelMejoras.setLayout(new BoxLayout(panelMejoras, BoxLayout.Y_AXIS));
-		panelMejoras.setBorder(new EmptyBorder(15, 15, 15, 15));
 		panelMejoras.setBackground(new Color(245, 245, 245));
+		panelMejoras.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createMatteBorder(0, 80, 0, 80, new Color(230, 225, 245)), // <-- antes 60
+				BorderFactory.createEmptyBorder(15, 20, 0, 20)));
 
 		scrollMejoras = new JScrollPane(panelMejoras);
 		scrollMejoras.setBorder(null);
@@ -208,52 +246,32 @@ public class Interfaz extends JFrame {
 		setVisible(true);
 	}
 
-	/**
-	 * Conecta listeners (mouse/click) para pizza y mejoras. Centraliza aquí la
-	 * interacción del jugador con el modelo.
-	 */
 	private void conectarEventos() {
 		feedbackBotonPizza();
 	}
 
-	/**
-	 * Notifica al panel de FX que ha ocurrido un autoclick. Se usa para sincronizar
-	 * halo/floaters con el motor pasivo.
-	 */
 	public void notifyAutoClickFX() {
 		if (pizzaFX != null)
 			pizzaFX.notifyAutoClickTick();
 	}
 
-	/**
-	 * Aplica feedback visual al botón de la pizza (hover/click). Puede ajustar
-	 * bordes/colores y disparar pequeñas animaciones.
-	 */
-	public void feedbackBotonPizza() {
+	private void feedbackBotonPizza() {
 		int feedbackMs = 90;
 
 		pizzaLabel.addMouseListener(new MouseAdapter() {
 			@Override
-			/**
-			 * Método mousePressed de Interfaz. Ver descripción en el código/uso.
-			 * 
-			 * Parámetros:
-			 * 
-			 * @param e TODO
-			 */
 			public void mousePressed(MouseEvent e) {
 				pizzaLabel.setIcon(iconBig);
-				pizzaLabel.revalidate();
-				pizzaLabel.repaint();
+				pizzaFX.revalidate();
+				pizzaFX.repaint();
 
 				new Timer(feedbackMs, ev -> {
 					pizzaLabel.setIcon(iconNormal);
-					pizzaLabel.revalidate();
-					pizzaLabel.repaint();
+					pizzaFX.revalidate();
+					pizzaFX.repaint();
 					((Timer) ev.getSource()).stop();
 				}).start();
 
-				// float click manual
 				double npc = datos.getClickIncremento() + datos.getNps() / 50.0;
 				if (pizzaFX != null)
 					pizzaFX.spawnClickFloat(npc);
@@ -264,127 +282,85 @@ public class Interfaz extends JFrame {
 		});
 	}
 
-	// filas de mejoras
-	/**
-	 * Crea dinámicamente los botones/paneles de mejoras (click y pasivas) en base a
-	 * las listas de mejoras. Deja referencias para poder actualizar estados
-	 * (enabled/locked/precio) durante el render.
-	 */
+	private RoundedButton crearBotonMejora(Mejora m) {
+		RoundedButton btn = new RoundedButton("", 40);
+		btn.setLayout(new BorderLayout());
+		btn.setFocusPainted(false);
+		btn.setBackground(BTN_GRIS_NO);
+		btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+		btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
+		btn.setPreferredSize(new Dimension(10, 56));
+		btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+		btn.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
+
+		// icono fijo (izquierda)
+		JLabel lblIcon = new JLabel();
+		lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
+		lblIcon.setVerticalAlignment(SwingConstants.CENTER);
+		lblIcon.setPreferredSize(new Dimension(62, 44));
+		lblIcon.setMinimumSize(new Dimension(62, 44));
+		lblIcon.setMaximumSize(new Dimension(62, 44));
+
+		JLabel lblLeft = new JLabel();
+		lblLeft.setFont(emoji);
+		lblLeft.setHorizontalAlignment(SwingConstants.LEFT);
+		lblLeft.setVerticalAlignment(SwingConstants.CENTER);
+
+		JLabel lblRight = new JLabel();
+		lblRight.setFont(emoji);
+		lblRight.setHorizontalAlignment(SwingConstants.RIGHT);
+		lblRight.setVerticalAlignment(SwingConstants.CENTER);
+		lblRight.setPreferredSize(new Dimension(65, 34)); // <-- antes 110
+		lblRight.setMinimumSize(new Dimension(65, 34));
+		lblRight.setMaximumSize(new Dimension(65, 34));
+
+		// ✅ ORDEN CORRECTO
+		btn.add(lblIcon, BorderLayout.WEST);
+		btn.add(lblLeft, BorderLayout.CENTER);
+		btn.add(lblRight, BorderLayout.EAST);
+
+		btn.putClientProperty("icon", lblIcon);
+		btn.putClientProperty("left", lblLeft);
+		btn.putClientProperty("right", lblRight);
+
+		btn.addActionListener(ev -> {
+			if (!datos.verificarCompra(m.getCoste()))
+				return;
+
+			m.comprar(datos);
+
+			long until = System.currentTimeMillis() + 70;
+			btn.putClientProperty(PROP_FLASH_UNTIL, until);
+
+			render();
+		});
+
+		return btn;
+	}
+
 	private void construirMejorasUI() {
-		labelsIcono.clear();
 		panelMejoras.removeAll();
-		labelsCoste.clear();
-		botonesCompra.clear();
+		botonesMejoras.clear();
 
-		for (int i = 0; i < mejorasClicker.size(); i++) {
-			Mejora m2 = mejorasClicker.get(i);
-
-			FlashPanel fila = new FlashPanel(new Color(245, 245, 245));
-			fila.setLayout(new BorderLayout(10, 0));
-			fila.setBorder(new EmptyBorder(4, 4, 4, 4));
-
-			JLabel lblCoste = new JLabel("ERROR");
-			lblCoste.setFont(emoji);
-			lblCoste.setForeground(Color.DARK_GRAY);
-
-			RoundedButton btnCompra = new RoundedButton(nf.format(m2.getCoste()), 14);
-			btnCompra.setFont(emoji);
-			btnCompra.setFocusPainted(false);
-			btnCompra.setBackground(BTN_VERDE_OK);
-			btnCompra.setPreferredSize(new Dimension(72, 34));
-			btnCompra.setMaximumSize(new Dimension(72, 34));
-			btnCompra.setHorizontalAlignment(SwingConstants.CENTER);
-			btnCompra.setVerticalAlignment(SwingConstants.CENTER);
-			btnCompra.setMargin(new Insets(0, 12, 0, 12));
-
-			JLabel lblIcono = new JLabel(m2.getIcono());
-			lblIcono.setFont(emoji);
-			lblIcono.setBorder(new EmptyBorder(6, 0, 6, 0));
-			JPanel panelDerecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-			panelDerecha.setOpaque(false);
-			panelDerecha.add(lblIcono);
-			panelDerecha.add(btnCompra);
-			labelsIcono.add(lblIcono);
-
-			btnCompra.addActionListener(ev -> {
-				if (datos.verificarCompra(m2.getCoste())) {
-					m2.comprar(datos);
-					fila.flash(new Color(210, 255, 210), 120);
-					render();
-				}
-			});
-
-			labelsCoste.add(lblCoste);
-			botonesCompra.add(btnCompra);
-
-			fila.add(lblCoste, BorderLayout.CENTER);
-			fila.add(panelDerecha, BorderLayout.EAST);
-
-			panelMejoras.add(fila);
-			panelMejoras.add(Box.createVerticalStrut(6));
+		for (Mejora m : mejorasClicker) {
+			RoundedButton btn = crearBotonMejora(m);
+			botonesMejoras.add(btn);
+			panelMejoras.add(btn);
+			panelMejoras.add(Box.createVerticalStrut(10));
 		}
 
-		for (int i = 0; i < mejoras.size(); i++) {
-			Mejora m = mejoras.get(i);
-
-			FlashPanel fila = new FlashPanel(new Color(245, 245, 245));
-			fila.setLayout(new BorderLayout(10, 0));
-			fila.setBorder(new EmptyBorder(4, 4, 4, 4));
-
-			JLabel lblCoste = new JLabel("ERROR");
-			lblCoste.setFont(emoji);
-			lblCoste.setForeground(Color.DARK_GRAY);
-
-			RoundedButton btnCompra = new RoundedButton(nf.format(m.getCoste()), 14);
-			btnCompra.setFont(emoji);
-			btnCompra.setFocusPainted(false);
-			btnCompra.setBackground(BTN_VERDE_OK);
-			btnCompra.setPreferredSize(new Dimension(72, 34));
-			btnCompra.setMaximumSize(new Dimension(72, 34));
-			btnCompra.setHorizontalAlignment(SwingConstants.CENTER);
-			btnCompra.setVerticalAlignment(SwingConstants.CENTER);
-			btnCompra.setMargin(new Insets(0, 12, 0, 12));
-
-			JLabel lblIcono = new JLabel(m.getIcono());
-			lblIcono.setFont(emoji);
-			lblIcono.setBorder(new EmptyBorder(6, 0, 6, 0));
-			JPanel panelDerecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-			panelDerecha.setOpaque(false);
-			panelDerecha.add(lblIcono);
-			panelDerecha.add(btnCompra);
-			labelsIcono.add(lblIcono);
-
-			btnCompra.addActionListener(ev -> {
-				if (datos.verificarCompra(m.getCoste())) {
-					m.comprar(datos);
-					fila.flash(new Color(210, 255, 210), 120);
-					render();
-				}
-			});
-
-			labelsCoste.add(lblCoste);
-			botonesCompra.add(btnCompra);
-
-			fila.add(lblCoste, BorderLayout.CENTER);
-			fila.add(panelDerecha, BorderLayout.EAST);
-
-			panelMejoras.add(fila);
-			panelMejoras.add(Box.createVerticalStrut(6));
+		for (Mejora m : mejoras) {
+			RoundedButton btn = crearBotonMejora(m);
+			botonesMejoras.add(btn);
+			panelMejoras.add(btn);
+			panelMejoras.add(Box.createVerticalStrut(10));
 		}
 
 		panelMejoras.revalidate();
 		panelMejoras.repaint();
 	}
 
-	/**
-	 * Formatea números grandes en forma abreviada (k, M, B etc.) para la UI.
-	 * Devuelve un String listo para mostrar en labels/botones.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param n TODO
-	 * @return TODO
-	 */
 	private String formatAbreviado(long n) {
 		final String[] sufijos = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No" };
 
@@ -411,99 +387,142 @@ public class Interfaz extends JFrame {
 		return String.format(Locale.US, "%.2f%s", valor, sufijos[indice]);
 	}
 
-	/**
-	 * Refresca la UI leyendo el estado del modelo (Datos). Actualiza textos,
-	 * estados de botones, desbloqueos y dispara FX cuando toca.
-	 */
-	public void render() {
-		// anti crash
-		if (labelsCoste.isEmpty() || botonesCompra.isEmpty() || labelsIcono.isEmpty()) {
+	private void actualizarBotonMejora(RoundedButton btn, Mejora m) {
+		JLabel icon = (JLabel) btn.getClientProperty("icon");
+		JLabel left = (JLabel) btn.getClientProperty("left");
+		JLabel right = (JLabel) btn.getClientProperty("right");
+
+		// --- Estado actual ---
+		boolean unlock = m.desbloquado(datos.getMaximo());
+		long coste = (long) m.getCoste();
+		int nivel = m.getNivel();
+		boolean canBuy = unlock && datos.verificarCompra(m.getCoste());
+
+		// Guardamos un snapshot mínimo para no machacar Swing cada frame
+		String state = unlock + "|" + canBuy + "|" + nivel + "|" + coste;
+		Object prev = btn.getClientProperty("state");
+		boolean stateChanged = !state.equals(prev);
+
+		// --- Flash de compra (tiene prioridad visual) ---
+		Object v = btn.getClientProperty(PROP_FLASH_UNTIL);
+		long now = System.currentTimeMillis();
+
+		boolean hasFlash = (v instanceof Long);
+		boolean flashing = hasFlash && now < (Long) v;
+		boolean expired = hasFlash && now >= (Long) v;
+
+		// Si acaba de expirar, limpiamos la prop y FORZAMOS 1 actualización
+		boolean forceRefresh = false;
+		if (expired) {
+			btn.putClientProperty(PROP_FLASH_UNTIL, null);
+			forceRefresh = true;
+		}
+
+		if (!stateChanged && !flashing && !forceRefresh) {
+			return; // nada que actualizar
+		}
+
+		btn.putClientProperty("state", state);
+
+		if (!canBuy) {
+			if (btn.getIcon() != ICON_LOCK) {
+				btn.setIcon(ICON_LOCK);
+			}
+		} else {
+			if (btn.getIcon() != null) {
+				btn.setIcon(null);
+			}
+		}
+
+		if (!unlock) {
+			// Locked
+			if (icon.getIcon() != null)
+				icon.setIcon(null);
+			left.setText("            Requiere " + formatAbreviado((long) m.getCoste()));
+			ImageIcon ico = loadIcon("/img/link.png", 32);
+			icon.setIcon(ico);
+			right.setText("");
+			left.setFont(new Font("Ebrima", Font.BOLD, 15));
+			btn.setBackground(flashing ? BTN_FLASH : BTN_ROJO_LOCK);
+			btn.setEnabled(false);
+			btn.setCursor(Cursor.getDefaultCursor());
 			return;
 		}
 
-		lblNum.setText(nf.format((long) datos.getNum()));
-		String nps = String.format("🍕/s %.2f ", datos.getNps());
+		// Icono (cacheado por ruta+tamaño en loadIcon)
+		String iconKey = m.getIconPath();
+		Object prevIconKey = btn.getClientProperty("iconKey");
+		if (iconKey == null)
+			iconKey = "";
+		if (!iconKey.equals(prevIconKey)) {
+			ImageIcon ico = loadIcon(m.getIconPath(), 32);
+			icon.setIcon(ico);
+			btn.putClientProperty("iconKey", iconKey);
+		}
+
+		left.setText(m.getNombre() + "  [ " + nivel + " ]");
+		left.setFont(new Font("Ebrima", Font.BOLD, 15));
+		right.setText(formatAbreviado((long) m.getCoste()));
+		right.setFont(new Font("Ebrima", Font.BOLD, 15));
+
+		if (flashing) {
+			btn.setBackground(BTN_FLASH);
+		} else if (canBuy) {
+			btn.setBackground(BTN_VERDE_OK);
+		} else {
+			btn.setBackground(BTN_GRIS_NO);
+		}
+
+		btn.setEnabled(canBuy);
+		btn.setCursor(canBuy ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+	}
+
+	public void render() {
+		if (botonesMejoras.isEmpty())
+			return;
+
+		// --- Número principal (solo si cambia) ---
+		long num = (long) datos.getNum();
+		if (num != lastShownNum) {
+			lastShownNum = num;
+			lblNum.setText(nf.format(num));
+		}
+
+		// --- NPS: configurar icono 1 vez ---
+		if (!npsIconConfigured && pizzaSliceIcon != null) {
+			npsIconConfigured = true;
+			lblNps.setIcon(pizzaSliceIcon);
+			lblNps.setHorizontalTextPosition(SwingConstants.RIGHT);
+			lblNps.setIconTextGap(6);
+		}
+
+		String npsBase = String.format("/s %.2f ", datos.getNps());
 
 		double npc = datos.getClickIncremento() + datos.getNps() / 50;
 		double npcAuto = datos.getPeriodoAutoClicker();
+
+		String npsText;
 		if (datos.getNivelAutoClicker() == 0) {
-			lblNps.setText(nps);
+			npsText = npsBase;
 		} else {
-			lblNps.setText(nps + String.format("  |  Cocineros +%.2f🍕 cada %.2fs ", npc, npcAuto));
+			npsText = npsBase + String.format("  |  Cocineros +%.2f cada %.2fs ", npc, npcAuto);
 		}
 
-		// halo autoclick
+		if (!npsText.equals(lastShownNpsText)) {
+			lastShownNpsText = npsText;
+			lblNps.setText(npsText);
+		}
+
 		if (datos.autoClickerPulsado()) {
 			notifyAutoClickFX();
 		}
 
-		// Render mejoras clicker
-		for (int i = 0; i < mejorasClicker.size(); i++) {
-			Mejora m = mejorasClicker.get(i);
-			JLabel lbl = labelsCoste.get(i);
-			JButton btn = botonesCompra.get(i);
-			JLabel ico = labelsIcono.get(i);
-
-			boolean unlock = m.desbloquado(datos.getMaximo());
-
-			if (!unlock) {
-				lbl.setText("🔒 Requiere " + (formatAbreviado((int) m.getCoste())) + " 🍕");
-				btn.setText("🔒");
-				ico.setText("");
-				btn.setBackground(BTN_ROJO_LOCK);
-				btn.setEnabled(false);
-				btn.setCursor(Cursor.getDefaultCursor());
-			} else {
-				lbl.setText(String.format("%s [ %d ]", m.getNombre(), m.getNivel()));
-				btn.setText(formatAbreviado((long) m.getCoste()));
-				ico.setText(m.getIcono());
-
-				boolean canBuy = datos.verificarCompra(m.getCoste());
-				if (canBuy) {
-					btn.setBackground(BTN_VERDE_OK);
-					btn.setEnabled(true);
-					btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-				} else {
-					btn.setBackground(BTN_GRIS_NO);
-					btn.setEnabled(false);
-					btn.setCursor(Cursor.getDefaultCursor());
-				}
-			}
+		int idx = 0;
+		for (Mejora m : mejorasClicker) {
+			actualizarBotonMejora(botonesMejoras.get(idx++), m);
 		}
-
-		// Render mejoras pasivas
-		int offset = mejorasClicker.size();
-		for (int i = 0; i < mejoras.size(); i++) {
-			Mejora m = mejoras.get(i);
-			JLabel lbl = labelsCoste.get(offset + i);
-			JButton btn = botonesCompra.get(offset + i);
-			JLabel ico = labelsIcono.get(offset + i);
-
-			boolean unlock = m.desbloquado(datos.getMaximo());
-
-			if (!unlock) {
-				lbl.setText("🔒 Requiere " + (formatAbreviado((int) m.getCoste())) + " 🍕");
-				btn.setText("🔒");
-				ico.setText("");
-				btn.setBackground(BTN_ROJO_LOCK);
-				btn.setEnabled(false);
-				btn.setCursor(Cursor.getDefaultCursor());
-			} else {
-				lbl.setText(String.format("%s [ %d ] ", m.getNombre(), m.getNivel()));
-				btn.setText(formatAbreviado((long) m.getCoste()));
-				ico.setText(m.getIcono());
-
-				boolean canBuy = datos.verificarCompra(m.getCoste());
-				if (canBuy) {
-					btn.setBackground(BTN_VERDE_OK);
-					btn.setEnabled(true);
-					btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-				} else {
-					btn.setBackground(BTN_GRIS_NO);
-					btn.setEnabled(false);
-					btn.setCursor(Cursor.getDefaultCursor());
-				}
-			}
+		for (Mejora m : mejoras) {
+			actualizarBotonMejora(botonesMejoras.get(idx++), m);
 		}
 	}
 }

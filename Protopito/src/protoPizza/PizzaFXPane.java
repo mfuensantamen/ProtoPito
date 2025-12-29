@@ -3,105 +3,84 @@ package protoPizza;
 /**
  * Proyecto ProtoPizza.
  * Archivo: PizzaFXPane.java
- * Documentación JavaDoc generada para entender el código (núcleo + UI).
  */
 import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import java.io.IOException;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
 
 /**
- * Panel de efectos alrededor de la pizza (halos, textos flotantes, feedback de autoclick).
- * Solo efectos visuales; no modifica el modelo directamente.
+ * Panel de efectos alrededor de la pizza (halos, textos flotantes, feedback de
+ * autoclick). Solo efectos visuales; no modifica el modelo directamente.
  */
 public class PizzaFXPane extends JLayeredPane {
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+
 	private static final long serialVersionUID = 1L;
+
+	private final JLabel pizzaLabel;
+
+	// --- ICONO PARA FLOATS (reemplaza 🍕) ---
+	private ImageIcon sliceIcon;
+	private int sliceIconSize = 22;
 
 	// --- HALO AUTOCLICK ---
 	private float haloAlpha = 0f;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
 	private float haloTarget = 0f;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
-	private long lastHaloPulseMs = 0L;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
-	private int haloMinIntervalMs = 90;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
-	private int haloRiseMs = 80;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
-	private int haloDecayMs = 180;
+	private long lastHaloPulseMs = 0;
+	private int haloMinIntervalMs = 160;
 
-	// --- estilo del halo (editable desde Interfaz) ---
-	private Color haloOuterColor = new Color(255, 215, 0); // amarillo
-	private Color haloInnerColor = new Color(255, 245, 200); // amarillo claro
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
-	private float haloOuterStroke = 8f; // ancho
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
+	private Color haloOuterColor = new Color(255, 215, 0);
+	private Color haloInnerColor = new Color(255, 245, 200);
+	private float haloOuterStroke = 8f;
 	private float haloInnerStroke = 4f;
-	/**
-	 * Variable de estado usada por esta clase.
-	 */
-	private int haloPadding = 10; // más cerca = menor
+	private int haloPadding = 10;
+	// cache (evita new BasicStroke / new Color cada frame)
+	private transient BasicStroke haloOuterStrokeObj = new BasicStroke(haloOuterStroke);
+	private transient BasicStroke haloInnerStrokeObj = new BasicStroke(haloInnerStroke);
+	private static final Color[] GOLD_ALPHA = buildGoldAlpha();
+
+	private static Color[] buildGoldAlpha() {
+		Color[] arr = new Color[256];
+		for (int i = 0; i < 256; i++)
+			arr[i] = new Color(255, 215, 0, i);
+		return arr;
+	}
 
 	// --- FLOATING LABELS ---
 	private static class FloatingFX {
 		JLabel label;
-		float x;
-		float y;
-		float vx;
-		float vy;
+		float x, y;
+		float vx, vy;
 		long startMs;
-		int durationMs;
+		long durationMs;
+		int lastAlpha = -1;
 	}
 
 	private final List<FloatingFX> floats = new ArrayList<>();
-	/**
-	 * Temporizador Swing usado para animaciones o ticks.
-	 */
 	private final Timer animTimer;
 
-	/**
-	 * Etiqueta Swing para mostrar información al jugador.
-	 */
-	private final JLabel pizzaLabel;
-	private final Font floatFont = new Font("Segoe UI Emoji", Font.BOLD, 14);
+	private final Font floatFont = new Font("Consolas", Font.BOLD, 18);
 
-	/**
-	 * Constructor de PizzaFXPane.
-	 * Inicializa el estado interno de la clase.
-	 * 
-	 * Parámetros:
-	 * @param pizzaLabel TODO
-	 */
 	public PizzaFXPane(JLabel pizzaLabel) {
 		setOpaque(false);
 		setLayout(null);
@@ -109,29 +88,43 @@ public class PizzaFXPane extends JLayeredPane {
 		this.pizzaLabel = pizzaLabel;
 		add(pizzaLabel, JLayeredPane.DEFAULT_LAYER);
 
+		// ✅ carga el icono de slice una vez
+		setSliceIcon("/img/pizza_slice.png", 22);
+
 		animTimer = new Timer(16, e -> step());
 		animTimer.start();
 	}
 
-	/**
-	 * Método setHaloMinIntervalMs de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param ms TODO
-	 */
-	public void setHaloMinIntervalMs(int ms) {
-		haloMinIntervalMs = Math.max(16, ms);
+	// ✅ Si quieres cambiar tamaño / icono más tarde desde Interfaz:
+	public void setSliceIcon(String resourcePath, int sizePx) {
+		this.sliceIconSize = Math.max(12, sizePx);
+		this.sliceIcon = loadIcon(resourcePath, this.sliceIconSize);
+		if (this.sliceIcon == null) {
+			System.err.println("❌ No se pudo cargar " + resourcePath + " (floats usarán emoji 🍕)");
+		}
 	}
 
-	/**
-	 * Método setHaloColors de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param outer TODO
-	 * @param inner TODO
-	 */
+	private ImageIcon loadIcon(String resourcePath, int sizePx) {
+		if (resourcePath == null || resourcePath.isBlank())
+			return null;
+
+		String path = resourcePath.startsWith("/") ? resourcePath : ("/" + resourcePath);
+
+		try {
+			var url = getClass().getResource(path);
+			if (url == null) {
+				System.err.println("❌ Recurso no encontrado: " + path);
+				return null;
+			}
+			BufferedImage img = ImageIO.read(url);
+			Image scaled = img.getScaledInstance(sizePx, sizePx, Image.SCALE_SMOOTH);
+			return new ImageIcon(scaled);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+
 	public void setHaloColors(Color outer, Color inner) {
 		if (outer != null)
 			this.haloOuterColor = outer;
@@ -139,36 +132,21 @@ public class PizzaFXPane extends JLayeredPane {
 			this.haloInnerColor = inner;
 	}
 
-	/**
-	 * Método setHaloStrokes de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param outerStroke TODO
-	 * @param innerStroke TODO
-	 */
 	public void setHaloStrokes(float outerStroke, float innerStroke) {
 		if (outerStroke > 0)
 			this.haloOuterStroke = outerStroke;
 		if (innerStroke > 0)
 			this.haloInnerStroke = innerStroke;
+
+		// refrescamos cache
+		haloOuterStrokeObj = new BasicStroke(this.haloOuterStroke);
+		haloInnerStrokeObj = new BasicStroke(this.haloInnerStroke);
 	}
 
-	/**
-	 * Método setHaloPadding de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param paddingPx TODO
-	 */
 	public void setHaloPadding(int paddingPx) {
 		this.haloPadding = Math.max(0, paddingPx);
 	}
 
-	/**
-	 * Método notifyAutoClickTick de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 */
 	public void notifyAutoClickTick() {
 		long now = System.currentTimeMillis();
 		if (now - lastHaloPulseMs >= haloMinIntervalMs) {
@@ -177,28 +155,44 @@ public class PizzaFXPane extends JLayeredPane {
 		}
 	}
 
-	/**
-	 * Método spawnClickFloat de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param pizzasPorClick TODO
-	 */
+	// ✅ AQUÍ: ya no usamos "+X 🍕", usamos "+X" + icono slice
 	public void spawnClickFloat(double pizzasPorClick) {
-		String txt = String.format("+%.2f 🍕", pizzasPorClick);
+
+		String txt = String.format("+%.2f", pizzasPorClick);
 		if (Math.abs(pizzasPorClick - Math.rint(pizzasPorClick)) < 0.001) {
-			txt = String.format("+%d 🍕", (long) Math.rint(pizzasPorClick));
+			txt = String.format("+%d", (long) Math.rint(pizzasPorClick));
 		}
 
 		FloatingFX fx = new FloatingFX();
-		JLabel lbl = new JLabel(txt);
+
+		JLabel lbl;
+		if (sliceIcon != null) {
+			lbl = new JLabel(txt, sliceIcon, SwingConstants.CENTER);
+			lbl.setHorizontalTextPosition(SwingConstants.RIGHT);
+			lbl.setVerticalTextPosition(SwingConstants.CENTER);
+			lbl.setIconTextGap(6);
+		} else {
+			// fallback si no hay imagen
+			lbl = new JLabel(txt + " 🍕");
+			lbl.setHorizontalAlignment(SwingConstants.CENTER);
+		}
+
 		lbl.setOpaque(false);
 		lbl.setForeground(new Color(255, 215, 0));
 		lbl.setFont(floatFont);
-		lbl.setHorizontalAlignment(SwingConstants.CENTER);
+
+		lbl.setHorizontalAlignment(SwingConstants.LEFT); // mejor para icon+texto
+		lbl.setIconTextGap(6);
+
+		// ancho mínimo para que no recorte
+		int minW = 90; // prueba 90-120 según te guste
+		int minH = 26;
 
 		Dimension pref = lbl.getPreferredSize();
-		lbl.setSize(pref);
+		int w = Math.max(pref.width, minW);
+		int h = Math.max(pref.height, minH);
+
+		lbl.setSize(w, h);
 
 		int pizzaW = pizzaLabel.getWidth();
 		int pizzaH = pizzaLabel.getHeight();
@@ -236,105 +230,69 @@ public class PizzaFXPane extends JLayeredPane {
 		repaint();
 	}
 
-	@Override
-	/**
-	 * Método doLayout de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 */
-	public void doLayout() {
-		super.doLayout();
-		Dimension pref = pizzaLabel.getPreferredSize();
-		int w = getWidth();
-		int h = getHeight();
-
-		int pw = pref != null ? pref.width : w;
-		int ph = pref != null ? pref.height : h;
-
-		int x = (w - pw) / 2;
-		int y = (h - ph) / 2;
-		pizzaLabel.setBounds(x, y, pw, ph);
-	}
-
-	/**
-	 * Método step de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 */
 	private void step() {
 		long now = System.currentTimeMillis();
 
-		if (haloTarget > 0f) {
-			float stepUp = 16f / Math.max(1, haloRiseMs);
-			haloAlpha = Math.min(haloTarget, haloAlpha + stepUp);
-			if (haloAlpha >= haloTarget - 0.001f) {
-				haloTarget = 0f;
+		// halo más rápido y más "snap"
+		haloAlpha += (haloTarget - haloAlpha) * 0.35f; // antes 0.18
+		haloTarget *= 0.65f; // antes 0.94 (decay más rápido)
+		if (haloAlpha < 0.02f)
+			haloAlpha = 0f;
+
+		// move floats
+		Iterator<FloatingFX> it = floats.iterator();
+		while (it.hasNext()) {
+			FloatingFX fx = it.next();
+			float t = (now - fx.startMs) / (float) fx.durationMs;
+			if (t >= 1f) {
+				remove(fx.label);
+				it.remove();
+				continue;
 			}
-		} else {
-			float stepDown = 16f / Math.max(1, haloDecayMs);
-			haloAlpha = Math.max(0f, haloAlpha - stepDown);
-		}
 
-		if (!floats.isEmpty()) {
-			Iterator<FloatingFX> it = floats.iterator();
-			while (it.hasNext()) {
-				FloatingFX fx = it.next();
-				float t = (now - fx.startMs) / (float) fx.durationMs;
-				if (t >= 1f) {
-					remove(fx.label);
-					it.remove();
-					continue;
-				}
+			fx.x += fx.vx;
+			fx.y += fx.vy;
 
-				fx.x += fx.vx;
-				fx.y += fx.vy;
-
-				float alpha = 1f;
-				if (t > 0.2f)
-					alpha = 1f - (t - 0.2f) / 0.8f;
-				alpha = Math.max(0f, Math.min(1f, alpha));
-
-				fx.label.setLocation(Math.round(fx.x), Math.round(fx.y));
-				fx.label.putClientProperty("alpha", alpha);
+			// fade out
+			float alpha = 1f - t;
+			int a = Math.max(0, Math.min(255, Math.round(alpha * 255)));
+			if (a != fx.lastAlpha) {
+				fx.lastAlpha = a;
+				fx.label.setForeground(GOLD_ALPHA[a]);
 			}
+
+			fx.label.setLocation(Math.round(fx.x), Math.round(fx.y));
 		}
 
 		repaint();
 	}
 
 	@Override
-	/**
-	 * Método paintChildren de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param g TODO
-	 */
-	protected void paintChildren(Graphics g) {
-		super.paintChildren(g);
-
-		if (floats.isEmpty())
+	public void doLayout() {
+		super.doLayout();
+		if (pizzaLabel == null)
 			return;
 
-		Graphics2D g2 = (Graphics2D) g.create();
-		for (FloatingFX fx : floats) {
-			Object a = fx.label.getClientProperty("alpha");
-			float alpha = (a instanceof Float) ? (Float) a : 1f;
-
-			g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-			g2.translate(fx.label.getX(), fx.label.getY());
-			fx.label.paint(g2);
-			g2.translate(-fx.label.getX(), -fx.label.getY());
+		// si aún no tiene tamaño (0), usa el preferred del pane
+		int paneW = getWidth();
+		int paneH = getHeight();
+		if (paneW <= 0 || paneH <= 0) {
+			Dimension p = getPreferredSize();
+			paneW = (p != null) ? p.width : 260;
+			paneH = (p != null) ? p.height : 260;
 		}
-		g2.dispose();
+
+		Dimension pref = pizzaLabel.getPreferredSize();
+		int w = (pref != null) ? pref.width : 200;
+		int h = (pref != null) ? pref.height : 200;
+
+		int x = (paneW - w) / 2;
+		int y = (paneH - h) / 2;
+
+		pizzaLabel.setBounds(x, y, w, h);
 	}
 
 	@Override
-	/**
-	 * Método paintComponent de PizzaFXPane.
-	 * Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * @param g TODO
-	 */
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 
@@ -343,24 +301,29 @@ public class PizzaFXPane extends JLayeredPane {
 
 		Graphics2D g2 = (Graphics2D) g.create();
 		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, haloAlpha));
+		g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, haloAlpha)));
 
-		int pw = pizzaLabel.getWidth();
-		int ph = pizzaLabel.getHeight();
+		int pizzaW = pizzaLabel.getWidth();
+		int pizzaH = pizzaLabel.getHeight();
 		int px = pizzaLabel.getX();
 		int py = pizzaLabel.getY();
 
-		int size = Math.min(pw, ph) + (haloPadding * 2);
-		int x = px + (pw - size) / 2;
-		int y = py + (ph - size) / 2;
+		if (pizzaW <= 0 || pizzaH <= 0) {
+			Dimension p = pizzaLabel.getPreferredSize();
+			pizzaW = p.width;
+			pizzaH = p.height;
+		}
 
-		// halo ancho, amarillo y más cerca
+		int size = Math.max(pizzaW, pizzaH) + haloPadding * 2;
+		int x = px + (pizzaW - size) / 2;
+		int y = py + (pizzaH - size) / 2;
+
 		g2.setColor(haloOuterColor);
-		g2.setStroke(new java.awt.BasicStroke(haloOuterStroke));
+		g2.setStroke(haloOuterStrokeObj);
 		g2.drawOval(x, y, size, size);
 
 		g2.setColor(haloInnerColor);
-		g2.setStroke(new java.awt.BasicStroke(haloInnerStroke));
+		g2.setStroke(haloInnerStrokeObj);
 		int inset = Math.round(haloOuterStroke);
 		g2.drawOval(x + inset, y + inset, size - inset * 2, size - inset * 2);
 

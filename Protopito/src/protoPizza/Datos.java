@@ -17,7 +17,7 @@ public class Datos {
 	/**
 	 * Cantidad actual de pizzas (recurso principal).
 	 */
-	private double num = 1000; // n de pizzas inicial
+	private double num = 1000000; // n de pizzas inicial
 	/**
 	 * Producción pasiva: pizzas por segundo.
 	 */
@@ -75,14 +75,6 @@ public class Datos {
 
 	// numeros actuales + numeros + numeros/s * 0.015 frecuencia de render
 	// actualizado
-	/**
-	 * Avanza el estado del juego una cantidad fija de segundos. Suma producción
-	 * pasiva y gestiona el autoclicker (cuando está activo).
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param diferenciaTiempo TODO
-	 */
 	public void reloj(double diferenciaTiempo) {
 
 		num += nps * diferenciaTiempo;
@@ -103,11 +95,6 @@ public class Datos {
 
 	}
 
-	/**
-	 * Método autoClickerPulsado de Datos. Ver descripción en el código/uso.
-	 * 
-	 * @return TODO
-	 */
 	public boolean autoClickerPulsado() {
 
 		boolean pulsacion = autoClickerPulsado;
@@ -115,162 +102,45 @@ public class Datos {
 		return pulsacion;
 	}
 
-	/**
-	 * Comprueba si hay suficientes pizzas para comprar un coste dado. Devuelve true
-	 * si la compra es posible.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param coste TODO
-	 * @return TODO
-	 */
 	public boolean verificarCompra(double coste) {
 		return num >= coste;
 	}
 
-	/**
-	 * Aumenta el valor/multiplicador de los clicks. Usado por mejoras de tipo
-	 * clicker.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param incremento TODO
-	 */
 	public void subirClicker(double incremento) {
 		clickIncremento += incremento;
 	}
 
-	/**
-	 * Aumenta la producción pasiva (pizzas por segundo). Usado por mejoras pasivas.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param incremento TODO
-	 */
 	public void subirNPS(double incremento) {
 		nps += incremento;
 	}
 
-	/**
-	 * Resta pizzas del total actual (al comprar). Asegura que el total no quede en
-	 * negativo.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param cantidad TODO
-	 */
 	public void gastar(double cantidad) {
 		num -= cantidad;
 	}
 
 	// getters setters
-	/**
-	 * Método getMaximo de Datos. Ver descripción en el código/uso.
-	 * 
-	 * @return TODO
-	 */
 	public double getMaximo() {
 		return recordMaximo;
 	}
 
-	/**
-	 * Método setClickIncremento de Datos. Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param click TODO
-	 */
-	public void setClickIncremento(double click) {
-		this.clickIncremento = click;
-	}
-
-	/**
-	 * Método getClickIncremento de Datos. Ver descripción en el código/uso.
-	 * 
-	 * @return TODO
-	 */
 	public double getClickIncremento() {
 		return clickIncremento;
 	}
 
-	/**
-	 * Método getNum de Datos. Ver descripción en el código/uso.
-	 * 
-	 * @return TODO
-	 */
 	public double getNum() {
 		return num;
 	}
 
-	/**
-	 * Método setNum de Datos. Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param num TODO
-	 */
-	public void setNum(double num) {
-		this.num = num;
-	}
-
-	/**
-	 * Método getNps de Datos. Ver descripción en el código/uso.
-	 * 
-	 * @return TODO
-	 */
 	public double getNps() {
 		return nps;
 	}
 
-	/**
-	 * Método setNps de Datos. Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param nps TODO
-	 */
-	public void setNps(double nps) {
-		this.nps = nps;
-	}
-
-	/**
-	 * Método getPeriodoAutoClicker de Datos. Ver descripción en el código/uso.
-	 * 
-	 * @return TODO
-	 */
 	public double getPeriodoAutoClicker() {
 		return periodoAutoClicker;
 	}
 
-	/**
-	 * Método setPeriodoAutoClicker de Datos. Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param periodoAutoClicker TODO
-	 */
-	public void setPeriodoAutoClicker(double periodoAutoClicker) {
-		this.periodoAutoClicker = periodoAutoClicker;
-	}
-
-	/**
-	 * Método getNivelAutoClicker de Datos. Ver descripción en el código/uso.
-	 * 
-	 * @return TODO
-	 */
 	public int getNivelAutoClicker() {
 		return nivelAutoClicker;
-	}
-
-	/**
-	 * Método setNivelAutoClicker de Datos. Ver descripción en el código/uso.
-	 * 
-	 * Parámetros:
-	 * 
-	 * @param nivelAutoClicker TODO
-	 */
-	public void setNivelAutoClicker(int nivelAutoClicker) {
-		this.nivelAutoClicker = nivelAutoClicker;
 	}
 
 }

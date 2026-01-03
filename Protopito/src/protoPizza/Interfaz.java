@@ -1,5 +1,15 @@
 package protoPizza;
 
+/**
+ * Proyecto ProtoPizza.
+ * Archivo: Interfaz.java
+ *
+ * Nota:
+ * - Versión simplificada para que NO reviente si faltan recursos (/img/...).
+ * - Sin "var" (por compatibilidad con proyectos configurados en Java 8).
+ * - Sin cache con HashMap.
+ * - Sin Consumer (eso va en Mejora, no aquí).
+ */
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -10,15 +20,13 @@ import java.awt.Image;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.net.URL;
 import java.text.NumberFormat;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
-import java.io.File;
 import java.io.IOException;
 
 import javax.imageio.ImageIO;
@@ -35,6 +43,10 @@ import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.EtchedBorder;
 
+/**
+ * Clase con el estilo principal del frente de la aplicación: refresco y
+ * generación de elementos de la ventana.
+ */
 @SuppressWarnings("serial")
 public class Interfaz extends JFrame {
 
@@ -42,20 +54,19 @@ public class Interfaz extends JFrame {
 	private JLabel lblNum;
 	private JLabel lblNps;
 
-	// cache UI (evita trabajo pesado cada frame)
-	private long lastShownNum = Long.MIN_VALUE;
-	private String lastShownNpsText = "";
-	private boolean npsIconConfigured = false;
+	// "mini-cache" UI (evita machacar Swing cada frame)
+	private long ultimoNumeroMostrado = Long.MIN_VALUE;
+	private String ultimoTextoNps = "";
 
 	// iconos pizza
-	private ImageIcon iconNormal;
-	private ImageIcon iconBig;
+	private ImageIcon iconoPizzaNormal;
+	private ImageIcon iconoPizzaGrande;
 
 	// icono slice para NPS
-	private ImageIcon pizzaSliceIcon;
+	private ImageIcon iconoSlice;
 
 	// pizza label
-	private JLabel pizzaLabel;
+	private JLabel etiquetaPizza;
 
 	// FX (floats + halo auto)
 	private PizzaFXPane pizzaFX;
@@ -72,7 +83,7 @@ public class Interfaz extends JFrame {
 	// motor
 	private Datos datos;
 
-	private final Font emoji = new Font("Segoe UI Emoji", Font.BOLD, 16);
+	private final Font fuenteEmoji = new Font("Segoe UI Emoji", Font.BOLD, 16);
 
 	private static final Color BTN_FLASH = new Color(170, 255, 170);
 	private static final String PROP_FLASH_UNTIL = "flashUntil";
@@ -81,52 +92,8 @@ public class Interfaz extends JFrame {
 	private static final Color BTN_GRIS_NO = new Color(210, 210, 210);
 	private static final Color BTN_ROJO_LOCK = new Color(250, 180, 180);
 
-	private static final ImageIcon ICON_LOCK = new ImageIcon(Interfaz.class.getResource("/img/link.png"));
-
-	// cache iconos mejoras
-	private final Map<String, ImageIcon> iconCache = new HashMap<>();
-
-	private ImageIcon loadIcon(String path, int size) {
-		if (path == null || path.isBlank())
-			return null;
-
-		String normalized = path.startsWith("/") ? path : ("/" + path);
-		String key = normalized + "@" + size;
-
-		ImageIcon cached = iconCache.get(key);
-		if (cached != null)
-			return cached;
-
-		try {
-			var url = getClass().getResource(normalized);
-			if (url != null) {
-				BufferedImage img = ImageIO.read(url);
-				Image scaled = img.getScaledInstance(size, size, Image.SCALE_SMOOTH);
-				ImageIcon icon = new ImageIcon(scaled);
-				iconCache.put(key, icon);
-				return icon;
-			}
-
-			// fallback file (solo para debug local)
-			File f = new File(path);
-			if (f.exists()) {
-				BufferedImage img = ImageIO.read(f);
-				Image scaled = img.getScaledInstance(size, size, Image.SCALE_SMOOTH);
-				ImageIcon icon = new ImageIcon(scaled);
-				iconCache.put(key, icon);
-				System.err.println("Icono cargado por File (debug): " + f.getAbsolutePath());
-				return icon;
-			}
-
-			System.err.println("❌ Icono NO encontrado: " + path);
-			return null;
-
-		} catch (IOException e) {
-			System.err.println("❌ Error leyendo icono: " + path);
-			e.printStackTrace();
-			return null;
-		}
-	}
+	// icono que se usa cuando una mejora está bloqueada (si existe el recurso)
+	private ImageIcon iconoBloqueo;
 
 	// NumberFormat en español sin decimales + separador
 	private final NumberFormat nf = NumberFormat.getInstance(Locale.forLanguageTag("es-ES"));
@@ -136,18 +103,39 @@ public class Interfaz extends JFrame {
 		nf.setGroupingUsed(true);
 	}
 
-	public Interfaz(Datos datos, List<Mejora> mejoras, List<Mejora> mejorasClicker) throws IOException {
-		this.datos = datos;
-		this.mejoras = mejoras;
-		this.mejorasClicker = mejorasClicker;
+	public Interfaz(Datos datos, List<Mejora> mejoras, List<Mejora> mejorasClicker) {
+		this.datos = (datos != null) ? datos : new Datos();
+		this.mejoras = (mejoras != null) ? mejoras : new ArrayList<>();
+		this.mejorasClicker = (mejorasClicker != null) ? mejorasClicker : new ArrayList<>();
 
 		construirUI();
 		construirMejorasUI();
 		conectarEventos();
-		render();
+		refrescarInterfaz();
 	}
 
-	private void construirUI() throws IOException {
+	/**
+	 * Carga un recurso de /img/... y lo escala. Si no existe, devuelve null (y NO
+	 * revienta la app).
+	 */
+	private ImageIcon cargarIconoRecurso(String ruta, int ancho, int alto) {
+		try {
+			URL url = getClass().getResource(ruta);
+			if (url == null) {
+				System.err.println("No se encontró el recurso: " + ruta);
+				return null;
+			}
+			BufferedImage img = ImageIO.read(url);
+			Image escalada = img.getScaledInstance(ancho, alto, Image.SCALE_SMOOTH);
+			return new ImageIcon(escalada);
+		} catch (IOException e) {
+			System.err.println("Error cargando recurso: " + ruta);
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	private void construirUI() {
 		setTitle("ProtoPizza - Clicker/Incremental");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setMinimumSize(new Dimension(600, 850));
@@ -179,41 +167,36 @@ public class Interfaz extends JFrame {
 		lblNum.setAlignmentX(Component.CENTER_ALIGNMENT);
 		panelNums.add(lblNum);
 
-		// --- CARGA RECURSOS (ANTES de usar icons) ---
-		var urlPizza = getClass().getResource("/img/pizza.png");
-		if (urlPizza == null)
-			throw new RuntimeException("No se encuentra /img/pizza.png");
+		// --- CARGA RECURSOS ---
+		ImageIcon pizza200 = cargarIconoRecurso("/img/pizza.png", 200, 200);
+		ImageIcon pizza207 = cargarIconoRecurso("/img/pizza.png", 207, 207);
+		iconoPizzaNormal = (pizza200 != null) ? pizza200 : new ImageIcon(); // fallback vacío
+		iconoPizzaGrande = (pizza207 != null) ? pizza207 : new ImageIcon();
 
-		var urlSlice = getClass().getResource("/img/pizza_slice.png");
-		if (urlSlice == null)
-			throw new RuntimeException("No se encuentra /img/pizza_slice.png");
+		iconoSlice = cargarIconoRecurso("/img/pizza_slice.png", 20, 20);
 
-		BufferedImage sliceImg = ImageIO.read(urlSlice);
-		pizzaSliceIcon = new ImageIcon(sliceImg.getScaledInstance(20, 20, Image.SCALE_SMOOTH));
-
-		BufferedImage pizzaImg = ImageIO.read(urlPizza);
-		this.iconNormal = new ImageIcon(pizzaImg.getScaledInstance(200, 200, Image.SCALE_SMOOTH));
-		this.iconBig = new ImageIcon(pizzaImg.getScaledInstance(207, 207, Image.SCALE_SMOOTH));
+		// icono bloqueo (link)
+		iconoBloqueo = cargarIconoRecurso("/img/link.png", 16, 16);
 
 		// NPS (icono + texto)
-		lblNps = new JLabel("/s 0,00");
+		lblNps = new JLabel("/s 0");
 		lblNps.setForeground(new Color(255, 228, 225));
-		lblNps.setFont(emoji);
+		lblNps.setFont(fuenteEmoji);
 		lblNps.setAlignmentX(Component.CENTER_ALIGNMENT);
 		lblNps.setBorder(new EmptyBorder(6, 0, 6, 0));
-		lblNps.setIcon(pizzaSliceIcon);
+		lblNps.setIcon(iconoSlice);
 		lblNps.setHorizontalTextPosition(SwingConstants.RIGHT);
 		lblNps.setIconTextGap(6);
 		panelNums.add(lblNps);
 
 		// PIZZA label
-		this.pizzaLabel = new JLabel(this.iconNormal);
-		this.pizzaLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		this.pizzaLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-		this.pizzaLabel.setPreferredSize(new Dimension(208, 208));
+		this.etiquetaPizza = new JLabel(this.iconoPizzaNormal);
+		this.etiquetaPizza.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		this.etiquetaPizza.setAlignmentX(Component.CENTER_ALIGNMENT);
+		this.etiquetaPizza.setPreferredSize(new Dimension(208, 208));
 
 		// FX pane
-		pizzaFX = new PizzaFXPane(this.pizzaLabel);
+		pizzaFX = new PizzaFXPane(this.etiquetaPizza);
 		pizzaFX.setOpaque(false);
 
 		// halo
@@ -235,7 +218,7 @@ public class Interfaz extends JFrame {
 		panelMejoras.setLayout(new BoxLayout(panelMejoras, BoxLayout.Y_AXIS));
 		panelMejoras.setBackground(new Color(245, 245, 245));
 		panelMejoras.setBorder(BorderFactory.createCompoundBorder(
-				BorderFactory.createMatteBorder(0, 80, 0, 80, new Color(230, 225, 245)), // <-- antes 60
+				BorderFactory.createMatteBorder(0, 80, 0, 80, new Color(230, 225, 245)),
 				BorderFactory.createEmptyBorder(15, 20, 0, 20)));
 
 		scrollMejoras = new JScrollPane(panelMejoras);
@@ -251,33 +234,31 @@ public class Interfaz extends JFrame {
 	}
 
 	public void notifyAutoClickFX() {
-		if (pizzaFX != null)
+		if (pizzaFX != null) {
 			pizzaFX.notifyAutoClickTick();
+		}
 	}
 
 	private void feedbackBotonPizza() {
-		int feedbackMs = 90;
+		final int feedbackMs = 90;
 
-		pizzaLabel.addMouseListener(new MouseAdapter() {
+		etiquetaPizza.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
-				pizzaLabel.setIcon(iconBig);
-				pizzaFX.revalidate();
-				pizzaFX.repaint();
+				etiquetaPizza.setIcon(iconoPizzaGrande);
 
 				new Timer(feedbackMs, ev -> {
-					pizzaLabel.setIcon(iconNormal);
-					pizzaFX.revalidate();
-					pizzaFX.repaint();
+					etiquetaPizza.setIcon(iconoPizzaNormal);
 					((Timer) ev.getSource()).stop();
 				}).start();
 
 				double npc = datos.getClickIncremento() + datos.getNps() / 50.0;
-				if (pizzaFX != null)
+				if (pizzaFX != null) {
 					pizzaFX.spawnClickFloat(npc);
+				}
 
 				datos.click();
-				render();
+				refrescarInterfaz();
 			}
 		});
 	}
@@ -299,23 +280,18 @@ public class Interfaz extends JFrame {
 		lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
 		lblIcon.setVerticalAlignment(SwingConstants.CENTER);
 		lblIcon.setPreferredSize(new Dimension(62, 44));
-		lblIcon.setMinimumSize(new Dimension(62, 44));
-		lblIcon.setMaximumSize(new Dimension(62, 44));
 
 		JLabel lblLeft = new JLabel();
-		lblLeft.setFont(emoji);
+		lblLeft.setFont(fuenteEmoji);
 		lblLeft.setHorizontalAlignment(SwingConstants.LEFT);
 		lblLeft.setVerticalAlignment(SwingConstants.CENTER);
 
 		JLabel lblRight = new JLabel();
-		lblRight.setFont(emoji);
+		lblRight.setFont(fuenteEmoji);
 		lblRight.setHorizontalAlignment(SwingConstants.RIGHT);
 		lblRight.setVerticalAlignment(SwingConstants.CENTER);
-		lblRight.setPreferredSize(new Dimension(65, 34)); // <-- antes 110
-		lblRight.setMinimumSize(new Dimension(65, 34));
-		lblRight.setMaximumSize(new Dimension(65, 34));
+		lblRight.setPreferredSize(new Dimension(65, 34));
 
-		// ✅ ORDEN CORRECTO
 		btn.add(lblIcon, BorderLayout.WEST);
 		btn.add(lblLeft, BorderLayout.CENTER);
 		btn.add(lblRight, BorderLayout.EAST);
@@ -325,15 +301,16 @@ public class Interfaz extends JFrame {
 		btn.putClientProperty("right", lblRight);
 
 		btn.addActionListener(ev -> {
-			if (!datos.verificarCompra(m.getCoste()))
+			if (!datos.verificarCompra(m)) {
 				return;
+			}
 
 			m.comprar(datos);
 
-			long until = System.currentTimeMillis() + 70;
-			btn.putClientProperty(PROP_FLASH_UNTIL, until);
+			long hasta = System.currentTimeMillis() + 70;
+			btn.putClientProperty(PROP_FLASH_UNTIL, hasta);
 
-			render();
+			refrescarInterfaz();
 		});
 
 		return btn;
@@ -361,11 +338,12 @@ public class Interfaz extends JFrame {
 		panelMejoras.repaint();
 	}
 
-	private String formatAbreviado(long n) {
+	private String formatAbreviado(double n) {
 		final String[] sufijos = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No" };
 
-		if (n < 10_000)
-			return String.valueOf(n);
+		if (n < 100) {
+			return String.format(Locale.US, "%.2f", n);
+		}
 
 		double valor = n;
 		int indice = 0;
@@ -392,125 +370,94 @@ public class Interfaz extends JFrame {
 		JLabel left = (JLabel) btn.getClientProperty("left");
 		JLabel right = (JLabel) btn.getClientProperty("right");
 
-		// --- Estado actual ---
-		boolean unlock = m.desbloquado(datos.getMaximo());
-		long coste = (long) m.getCoste();
+		boolean desbloqueado = m.desbloquado(datos.getMaximo());
 		int nivel = m.getNivel();
-		boolean canBuy = unlock && datos.verificarCompra(m.getCoste());
+		boolean puedeComprar = desbloqueado && datos.verificarCompra(m);
 
-		// Guardamos un snapshot mínimo para no machacar Swing cada frame
-		String state = unlock + "|" + canBuy + "|" + nivel + "|" + coste;
-		Object prev = btn.getClientProperty("state");
-		boolean stateChanged = !state.equals(prev);
+		String estado = desbloqueado + "|" + puedeComprar + "|" + nivel + "|" + (long) m.getCoste();
+		Object prev = btn.getClientProperty("estado");
+		boolean cambio = !estado.equals(prev);
 
-		// --- Flash de compra (tiene prioridad visual) ---
 		Object v = btn.getClientProperty(PROP_FLASH_UNTIL);
-		long now = System.currentTimeMillis();
+		long ahora = System.currentTimeMillis();
+		boolean tieneFlash = (v instanceof Long);
+		boolean flasheando = tieneFlash && ahora < (Long) v;
+		boolean expirado = tieneFlash && ahora >= (Long) v;
 
-		boolean hasFlash = (v instanceof Long);
-		boolean flashing = hasFlash && now < (Long) v;
-		boolean expired = hasFlash && now >= (Long) v;
-
-		// Si acaba de expirar, limpiamos la prop y FORZAMOS 1 actualización
-		boolean forceRefresh = false;
-		if (expired) {
+		boolean forzar = false;
+		if (expirado) {
 			btn.putClientProperty(PROP_FLASH_UNTIL, null);
-			forceRefresh = true;
+			forzar = true;
 		}
 
-		if (!stateChanged && !flashing && !forceRefresh) {
-			return; // nada que actualizar
-		}
+		if (!cambio && !flasheando && !forzar)
+			return;
 
-		btn.putClientProperty("state", state);
+		btn.putClientProperty("estado", estado);
 
-		if (!canBuy) {
-			if (btn.getIcon() != ICON_LOCK) {
-				btn.setIcon(ICON_LOCK);
-			}
+		if (!puedeComprar) {
+			btn.setIcon(iconoBloqueo);
 		} else {
-			if (btn.getIcon() != null) {
-				btn.setIcon(null);
-			}
+			btn.setIcon(null);
 		}
 
-		if (!unlock) {
-			// Locked
-			if (icon.getIcon() != null)
-				icon.setIcon(null);
-			left.setText("            Requiere " + formatAbreviado((long) m.getCoste()));
-			ImageIcon ico = loadIcon("/img/link.png", 32);
-			icon.setIcon(ico);
+		if (!desbloqueado) {
+			icon.setIcon(cargarIconoRecurso("/img/link.png", 32, 32));
+			left.setText("            Requiere " + formatAbreviado(m.getCoste()));
 			right.setText("");
 			left.setFont(new Font("Ebrima", Font.BOLD, 15));
-			btn.setBackground(flashing ? BTN_FLASH : BTN_ROJO_LOCK);
+			btn.setBackground(flasheando ? BTN_FLASH : BTN_ROJO_LOCK);
 			btn.setEnabled(false);
 			btn.setCursor(Cursor.getDefaultCursor());
 			return;
 		}
 
-		// Icono (cacheado por ruta+tamaño en loadIcon)
-		String iconKey = m.getIconPath();
-		Object prevIconKey = btn.getClientProperty("iconKey");
-		if (iconKey == null)
-			iconKey = "";
-		if (!iconKey.equals(prevIconKey)) {
-			ImageIcon ico = loadIcon(m.getIconPath(), 32);
-			icon.setIcon(ico);
-			btn.putClientProperty("iconKey", iconKey);
-		}
+		ImageIcon ico = cargarIconoRecurso(m.getIconPath(), 32, 32);
+		icon.setIcon(ico);
 
 		left.setText(m.getNombre() + "  [ " + nivel + " ]");
 		left.setFont(new Font("Ebrima", Font.BOLD, 15));
 		right.setText(formatAbreviado((long) m.getCoste()));
 		right.setFont(new Font("Ebrima", Font.BOLD, 15));
 
-		if (flashing) {
+		if (flasheando)
 			btn.setBackground(BTN_FLASH);
-		} else if (canBuy) {
+		else if (puedeComprar)
 			btn.setBackground(BTN_VERDE_OK);
-		} else {
+		else
 			btn.setBackground(BTN_GRIS_NO);
-		}
 
-		btn.setEnabled(canBuy);
-		btn.setCursor(canBuy ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+		btn.setEnabled(puedeComprar);
+		btn.setCursor(puedeComprar ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
 	}
 
-	public void render() {
+	public void refrescarInterfaz() {
+		double nps = datos.getNps();
+		double npc = datos.getClickIncremento() + nps / 50.0;
+
 		if (botonesMejoras.isEmpty())
 			return;
 
-		// --- Número principal (solo si cambia) ---
 		long num = (long) datos.getNum();
-		if (num != lastShownNum) {
-			lastShownNum = num;
+		if (num != ultimoNumeroMostrado) {
+			ultimoNumeroMostrado = num;
 			lblNum.setText(nf.format(num));
 		}
 
-		// --- NPS: configurar icono 1 vez ---
-		if (!npsIconConfigured && pizzaSliceIcon != null) {
-			npsIconConfigured = true;
-			lblNps.setIcon(pizzaSliceIcon);
-			lblNps.setHorizontalTextPosition(SwingConstants.RIGHT);
-			lblNps.setIconTextGap(6);
-		}
+		String npsBase = "/s " + formatAbreviado(nps);
 
-		String npsBase = String.format("/s %.2f ", datos.getNps());
-
-		double npc = datos.getClickIncremento() + datos.getNps() / 50;
-		double npcAuto = datos.getPeriodoAutoClicker();
-
-		String npsText;
+		double periodoAuto = datos.getPeriodoAutoClicker();
+		String texto;
 		if (datos.getNivelAutoClicker() == 0) {
-			npsText = npsBase;
+			texto = npsBase;
 		} else {
-			npsText = npsBase + String.format("  |  Cocineros +%.2f cada %.2fs ", npc, npcAuto);
+			texto = npsBase
+					+ String.format(Locale.US, "  |  Cocineros +%s cada %.2fs", formatAbreviado(npc), periodoAuto);
 		}
 
-		if (!npsText.equals(lastShownNpsText)) {
-			lastShownNpsText = npsText;
-			lblNps.setText(npsText);
+		if (!texto.equals(ultimoTextoNps)) {
+			ultimoTextoNps = texto;
+			lblNps.setText(texto);
 		}
 
 		if (datos.autoClickerPulsado()) {

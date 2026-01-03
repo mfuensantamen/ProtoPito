@@ -1,10 +1,5 @@
 package protoPizza;
 
-/**
- * Proyecto ProtoPizza.
- * Archivo: RoundedButton.java
- * Documentación JavaDoc generada para entender el código (núcleo + UI).
- */
 import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -16,66 +11,64 @@ import javax.swing.JButton;
 import javax.swing.SwingConstants;
 
 /**
- * Botón con estilo redondeado (custom painting).
- * Reutilizable para mejoras y acciones secundarias.
+ * Botón con estilo redondeado (custom painting). Reutilizable para mejoras y
+ * acciones secundarias.
  */
 public class RoundedButton extends JButton {
 	// clase para generar boton con bordes redondeados
 
-	private final int radius;
+	private final int radio;
 
-	public RoundedButton(String text, int radius) {
-		super(text);
-		this.radius = radius;
+	public RoundedButton(String texto, int radio) {
+		super(texto);
+		this.radio = radio;
 
 		setContentAreaFilled(false);
 		setFocusPainted(false);
 		setBorderPainted(false);
 		setOpaque(false);
 
-		// márgenes
+		// margenes
 		setMargin(new Insets(0, 12, 0, 12));
 		setHorizontalAlignment(SwingConstants.CENTER);
 		setVerticalAlignment(SwingConstants.CENTER);
 	}
 
 	@Override
-	protected void paintComponent(Graphics g) {
-		Graphics2D g2 = (Graphics2D) g.create();
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+	protected void paintComponent(Graphics graf) {
+		Graphics2D grafismo = (Graphics2D) graf.create();
+		grafismo.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
 		// fondo
-		g2.setColor(getBackground());
-		g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
+		grafismo.setColor(getBackground());
+		grafismo.fillRoundRect(0, 0, getWidth(), getHeight(), radio, radio);
 
 		// borde suave
-		g2.setColor(new Color(0, 0, 0, 50));
-		g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
+		grafismo.setColor(new Color(0, 0, 0, 50));
+		grafismo.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radio, radio);
 
 		// texto
-		String text = getText();
-		if (text != null && !text.isEmpty()) {
-			g2.setFont(getFont());
-			FontMetrics fm = g2.getFontMetrics();
+		String texto = getText();
+		if (texto != null && !texto.isEmpty()) {
+			grafismo.setFont(getFont());
+			FontMetrics fm = grafismo.getFontMetrics();// ?????
 
 			// padding para el texto
-			Insets in = getInsets();
-			int availableW = getWidth() - in.left - in.right;
-			int availableH = getHeight() - in.top - in.bottom;
+			Insets insercion = getInsets();
+			int anchoDsisponible = getWidth() - insercion.left - insercion.right;
+			int altoDisponible = getHeight() - insercion.top - insercion.bottom;
 
-			int textWidth = fm.stringWidth(text);
+			int anchuraTexto = fm.stringWidth(texto);
 
-			// centrado horizontal dentro del área útil
-			int x = in.left + (availableW - textWidth) / 2;
-
-			// centrado vertical por baseline dentro del área útil
-			int y = in.top + (availableH - fm.getHeight()) / 2 + fm.getAscent();
+			// para centrar el texto mejor en el boton
+			int x = insercion.left + (anchoDsisponible - anchuraTexto) / 2;
+			int y = insercion.top + (altoDisponible - fm.getHeight()) / 2 + fm.getAscent();
 			y += 3;
 
-			g2.setColor(getForeground());
-			g2.drawString(text, x, y);
+			grafismo.setColor(getForeground());
+			grafismo.drawString(texto, x, y);
 		}
 
-		g2.dispose();
+		grafismo.dispose();
 	}
 }

@@ -1,47 +1,41 @@
 package protoPizza;
 
-/**
- * Proyecto ProtoPizza.
- * Archivo: Mejora.java
- * Documentación JavaDoc generada para entender el código (núcleo + UI).
- */
-import java.util.function.Consumer;
+// para que lo que envie una accion inmediata que se ejecuta sobre datos
+// Se usa para aplicar efectos de mejoras mediante lambdas.
+// para aplicar "efectos" o codigo de las mejoras, funciones que se pasan como parametro
+interface EjecutorAccionDatos {
+	void ejecutar(Datos datos);
+}
 
-/**
- * Representa una mejora del juego (click o pasiva). Guarda nombre, coste,
- * escalado de coste, requisito de desbloqueo y una acción a aplicar sobre
- * Datos.
- */
+// mejoras pasivas y activas con atributos y acciones que afectan a datos
 public class Mejora {
 // clase para la personalizacion y comportamiento de las mejoras pasivas y activas
 
-	private Consumer<Datos> accion;
-
-	/**
-	 * Nombre visible de la mejora.
-	 */
 	protected String nombre;
-	/**
-	 * Nivel actual de la mejora (cuántas veces se ha comprado).
-	 */
-	protected int nivel;
-	/**
-	 * Coste actual para comprar el siguiente nivel.
-	 */
-	protected double coste;
-	private String iconPath;
 
-	/**
-	 * Factor de incremento del coste al subir de nivel.
-	 */
+	// Nivel de la mejora (cuantas veces se ha comprado)
+	protected int nivel;
+
+	// coste para comprar el siguiente nivel
+	protected double coste;
+
+	// escala de incremento del coste al subir de nivel
 	protected double incrCoste;
-	/**
-	 * Umbral de desbloqueo (normalmente récord mínimo).
-	 */
+
+	// umbral para desbloquear la mejora
 	protected double requisitoDesbloqueo;
 
-	// constructor para pasivas y activas
-	public Mejora(String nombre, double coste, double incrCoste, double requisitoDesbloqueo, Consumer<Datos> accion,
+	// ruta del icono de cada mejora
+	private String iconPath;
+
+	// accion asociada a las mejoras
+	private EjecutorAccionDatos accion;
+
+	// constructores
+	public Mejora() {
+	}
+
+	public Mejora(String nombre, double coste, double incrCoste, double requisitoDesbloqueo, EjecutorAccionDatos accion,
 			String iconPath) {
 		this.nombre = nombre;
 		this.nivel = 0;
@@ -52,25 +46,40 @@ public class Mejora {
 		this.accion = accion;
 	}
 
+	// funcion que devuelve un boolean si se ha podido o no comprar
 	public boolean comprar(Datos datos) {
-		if (!datos.verificarCompra(coste)) {
+
+		// si no se puede comprar sale del metodo
+		if (!datos.verificarCompra(this)) {
 			return false;
 		}
 
+		// si se puede comprar continua y gasta el recurso
 		datos.gastar(coste);
+		// y sube el nivel de la mejora
 		nivel++;
 
-		if (accion != null)
-			accion.accept(datos);
+		// para evitar errores si una mejora no tiene una accion asociada en sus
+		// parametros
+		if (accion != null) {
+			// ejecuta la funcion y envia los datos por parametro
+			accion.ejecutar(datos);
+		}
 
+		// aplica el escalado para aumentar el coste de la siguiente compra
 		coste *= incrCoste;
 		return true;
 	}
 
-	public boolean desbloquado(double numActual) {
-		return numActual >= requisitoDesbloqueo;
+	// guarda el estado actual de la mejora, si el recurso es insuficiente, la
+	// mejora no sera clickable
+	public boolean desbloquado(double num) {
+		return num >= requisitoDesbloqueo;
 	}
 
+	//
+	//
+	// getters setters
 	public String getNombre() {
 		return nombre;
 	}
@@ -85,10 +94,6 @@ public class Mejora {
 
 	public String getIconPath() {
 		return iconPath;
-	}
-
-	public void setIconPath(String iconPath) {
-		this.iconPath = iconPath;
 	}
 
 }

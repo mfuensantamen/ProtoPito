@@ -8,7 +8,6 @@ import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -35,8 +34,6 @@ import javax.swing.Timer;
  */
 public class PizzaFXPane extends JLayeredPane {
 
-	private static final long serialVersionUID = 1L;
-
 	private final JLabel pizzaLabel;
 
 	// --- ICONO PARA FLOATS (reemplaza 🍕) ---
@@ -60,10 +57,10 @@ public class PizzaFXPane extends JLayeredPane {
 	private static final Color[] GOLD_ALPHA = buildGoldAlpha();
 
 	private static Color[] buildGoldAlpha() {
-		Color[] arr = new Color[256];
+		Color[] alpha = new Color[256];
 		for (int i = 0; i < 256; i++)
-			arr[i] = new Color(255, 215, 0, i);
-		return arr;
+			alpha[i] = new Color(255, 192, 0, i);
+		return alpha;
 	}
 
 	// --- FLOATING LABELS ---
@@ -79,23 +76,17 @@ public class PizzaFXPane extends JLayeredPane {
 	private final List<FloatingFX> floats = new ArrayList<>();
 	private final Timer animTimer;
 
-	private final Font floatFont = new Font("Consolas", Font.BOLD, 18);
-
 	public PizzaFXPane(JLabel pizzaLabel) {
 		setOpaque(false);
 		setLayout(null);
-
 		this.pizzaLabel = pizzaLabel;
 		add(pizzaLabel, JLayeredPane.DEFAULT_LAYER);
 
-		// ✅ carga el icono de slice una vez
 		setSliceIcon("/img/pizza_slice.png", 22);
-
 		animTimer = new Timer(16, e -> step());
 		animTimer.start();
 	}
 
-	// ✅ Si quieres cambiar tamaño / icono más tarde desde Interfaz:
 	public void setSliceIcon(String resourcePath, int sizePx) {
 		this.sliceIconSize = Math.max(12, sizePx);
 		this.sliceIcon = loadIcon(resourcePath, this.sliceIconSize);
@@ -147,7 +138,7 @@ public class PizzaFXPane extends JLayeredPane {
 		this.haloPadding = Math.max(0, paddingPx);
 	}
 
-	public void notifyAutoClickTick() {
+	public void efectoHaloTick() {
 		long now = System.currentTimeMillis();
 		if (now - lastHaloPulseMs >= haloMinIntervalMs) {
 			lastHaloPulseMs = now;
@@ -155,37 +146,27 @@ public class PizzaFXPane extends JLayeredPane {
 		}
 	}
 
-	// ✅ AQUÍ: ya no usamos "+X 🍕", usamos "+X" + icono slice
-	public void spawnClickFloat(double pizzasPorClick) {
-
-		String txt = String.format("+%.2f", pizzasPorClick);
-		if (Math.abs(pizzasPorClick - Math.rint(pizzasPorClick)) < 0.001) {
-			txt = String.format("+%d", (long) Math.rint(pizzasPorClick));
-		}
+	public void spawnClickFloat(double pizzasPorClick, String texto) {
 
 		FloatingFX fx = new FloatingFX();
 
-		JLabel lbl;
+		JLabel lbl = null;
 		if (sliceIcon != null) {
-			lbl = new JLabel(txt, sliceIcon, SwingConstants.CENTER);
+			lbl = new JLabel(texto, sliceIcon, SwingConstants.CENTER);
 			lbl.setHorizontalTextPosition(SwingConstants.RIGHT);
 			lbl.setVerticalTextPosition(SwingConstants.CENTER);
 			lbl.setIconTextGap(6);
-		} else {
-			// fallback si no hay imagen
-			lbl = new JLabel(txt + " 🍕");
-			lbl.setHorizontalAlignment(SwingConstants.CENTER);
 		}
 
 		lbl.setOpaque(false);
 		lbl.setForeground(new Color(255, 215, 0));
-		lbl.setFont(floatFont);
+		lbl.setFont(Interfaz.fuente);
 
 		lbl.setHorizontalAlignment(SwingConstants.LEFT); // mejor para icon+texto
 		lbl.setIconTextGap(6);
 
 		// ancho mínimo para que no recorte
-		int minW = 90; // prueba 90-120 según te guste
+		int minW = 90;
 		int minH = 26;
 
 		Dimension pref = lbl.getPreferredSize();
@@ -219,7 +200,7 @@ public class PizzaFXPane extends JLayeredPane {
 		fx.vx = (right ? 0.5f : -0.5f) + (ThreadLocalRandom.current().nextFloat() - 0.5f) * 0.6f;
 
 		fx.startMs = System.currentTimeMillis();
-		fx.durationMs = 650;
+		fx.durationMs = 1000;
 		fx.label = lbl;
 
 		add(lbl, JLayeredPane.PALETTE_LAYER);
@@ -255,7 +236,7 @@ public class PizzaFXPane extends JLayeredPane {
 
 			// fade out
 			float alpha = 1f - t;
-			int a = Math.max(0, Math.min(255, Math.round(alpha * 255)));
+			int a = Math.max(90, Math.min(255, Math.round(alpha * 255)));
 			if (a != fx.lastAlpha) {
 				fx.lastAlpha = a;
 				fx.label.setForeground(GOLD_ALPHA[a]);

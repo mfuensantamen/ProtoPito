@@ -43,59 +43,66 @@ import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.EtchedBorder;
 
-/**
- * Clase con el estilo principal del frente de la aplicación: refresco y
- * generación de elementos de la ventana.
- */
-@SuppressWarnings("serial")
+// clase que refresca y genera elementos de interfaz visual
 public class Interfaz extends JFrame {
 
-	// etiquetas
+	// datos
+	private Datos datos;
+
+	// etiquetas de texto para numeros y numeros por segundo
 	private JLabel lblNum;
 	private JLabel lblNps;
 
-	// "mini-cache" UI (evita machacar Swing cada frame)
+	// almacena estos valores, si no cambian no seran refrescados
 	private long ultimoNumeroMostrado = Long.MIN_VALUE;
 	private String ultimoTextoNps = "";
 
-	// iconos pizza
-	private ImageIcon iconoPizzaNormal;
-	private ImageIcon iconoPizzaGrande;
+	// icono de candado para mejoras bloqueadas
+	private ImageIcon iconoBloqueo = cargarIconoRecurso("/img/link.png", 16, 16);
 
-	// icono slice para NPS
-	private ImageIcon iconoSlice;
+	// iconos pizza, el normal y el aumentado para efecto click
+	private ImageIcon iconoPizzaNormal = cargarIconoRecurso("/img/pizza.png", 200, 200);
+	private ImageIcon iconoPizzaGrande = cargarIconoRecurso("/img/pizza.png", 207, 207);
 
-	// pizza label
+	// icono de porcion de pizza pequeño
+	private ImageIcon iconoSlice = cargarIconoRecurso("/img/pizza_slice.png", 20, 20);
+
+	// pizza etiqueta para el boton de pizza central
 	private JLabel etiquetaPizza;
 
-	// FX (floats + halo auto)
+	// efectos visuales del boton
 	private PizzaFXPane pizzaFX;
 
-	// panel mejoras
-	private JPanel panelMejoras;
+	// panel de mejoras
+	private JPanel panelInferior;
 	private JScrollPane scrollMejoras;
 
-	// listas
-	private List<Mejora> mejorasClicker = new ArrayList<>();
-	private List<Mejora> mejoras = new ArrayList<>();
+	// listas de filas mejoras y botones
+	private List<Mejora> mejorasActivas = new ArrayList<>();
+	private List<Mejora> mejorasPasivas = new ArrayList<>();
 	private List<RoundedButton> botonesMejoras = new ArrayList<>();
 
-	// motor
-	private Datos datos;
+	// fuente
+	public static Font fuente = new Font("Gadugi", Font.BOLD, 17);
+	public static Locale localeES = Locale.of("es", "ES");
+	private static final NumberFormat FORMATO_ENTERO_ES;
 
-	private final Font fuenteEmoji = new Font("Segoe UI Emoji", Font.BOLD, 16);
+	static {
+		FORMATO_ENTERO_ES = NumberFormat.getInstance(localeES);
+		FORMATO_ENTERO_ES.setGroupingUsed(true); // puntos de miles
+		FORMATO_ENTERO_ES.setMaximumFractionDigits(0);
+	}
 
+	// flasheo verde de compra, feedback
 	private static final Color BTN_FLASH = new Color(170, 255, 170);
 	private static final String PROP_FLASH_UNTIL = "flashUntil";
 
+	// colores de botones de mejoras
 	private static final Color BTN_VERDE_OK = new Color(200, 255, 200);
 	private static final Color BTN_GRIS_NO = new Color(210, 210, 210);
 	private static final Color BTN_ROJO_LOCK = new Color(250, 180, 180);
 
-	// icono que se usa cuando una mejora está bloqueada (si existe el recurso)
-	private ImageIcon iconoBloqueo;
-
-	// NumberFormat en español sin decimales + separador
+	// formato de numeros en español sin decimales + separador de puntos
 	private final NumberFormat nf = NumberFormat.getInstance(Locale.forLanguageTag("es-ES"));
 	{
 		nf.setMaximumFractionDigits(0);
@@ -103,44 +110,43 @@ public class Interfaz extends JFrame {
 		nf.setGroupingUsed(true);
 	}
 
-	public Interfaz(Datos datos, List<Mejora> mejoras, List<Mejora> mejorasClicker) {
-		this.datos = (datos != null) ? datos : new Datos();
-		this.mejoras = (mejoras != null) ? mejoras : new ArrayList<>();
-		this.mejorasClicker = (mejorasClicker != null) ? mejorasClicker : new ArrayList<>();
-
-		construirUI();
-		construirMejorasUI();
-		conectarEventos();
+	// constructor de interfaz, construye la interfaz general, de mejoras, conecta
+	// el resto de metodos y refresca la interfaz cada tick de reloj
+	public Interfaz(Datos datos, List<Mejora> mejorasPasivas, List<Mejora> mejorasActivas) {
+		this.datos = datos;
+		this.mejorasPasivas = mejorasPasivas;
+		this.mejorasActivas = mejorasActivas;
+		construirInterfaz();
+		generarFilasDeMejoras();
+		feedbackBotonPizza();
 		refrescarInterfaz();
 	}
 
-	/**
-	 * Carga un recurso de /img/... y lo escala. Si no existe, devuelve null (y NO
-	 * revienta la app).
-	 */
+	// carga de icono pizza con su tamaño personalizado devuelve icono
 	private ImageIcon cargarIconoRecurso(String ruta, int ancho, int alto) {
 		try {
 			URL url = getClass().getResource(ruta);
-			if (url == null) {
-				System.err.println("No se encontró el recurso: " + ruta);
-				return null;
-			}
-			BufferedImage img = ImageIO.read(url);
-			Image escalada = img.getScaledInstance(ancho, alto, Image.SCALE_SMOOTH);
+			// enlace de recurso y buffer de icono
+			BufferedImage icono = ImageIO.read(url);
+			// escala los iconos al tamaño necesario
+			Image escalada = icono.getScaledInstance(ancho, alto, Image.SCALE_SMOOTH);
 			return new ImageIcon(escalada);
+
 		} catch (IOException e) {
-			System.err.println("Error cargando recurso: " + ruta);
+			System.err.println("Error cargando archivo: " + ruta);
 			e.printStackTrace();
 			return null;
 		}
 	}
 
-	private void construirUI() {
-		setTitle("ProtoPizza - Clicker/Incremental");
+	// generacion de todos los elementos de la interfaz
+	private void construirInterfaz() {
+		setTitle("ProtoPizza |  Clicker — Incremental");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setMinimumSize(new Dimension(600, 850));
+		setMinimumSize(new Dimension(700, 920));
 		getContentPane().setLayout(new BorderLayout(0, 0));
 
+		// panel superior
 		JPanel panelSuperior = new JPanel();
 		panelSuperior.setPreferredSize(new Dimension(850, 380));
 		panelSuperior.setBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null));
@@ -148,40 +154,32 @@ public class Interfaz extends JFrame {
 		panelSuperior.setLayout(new BorderLayout(0, 0));
 		getContentPane().add(panelSuperior, BorderLayout.NORTH);
 
+		// panel con info de los numeros superiores
 		JPanel panelNums = new JPanel();
 		panelNums.setBorder(new EmptyBorder(16, 20, 8, 20));
 		panelNums.setOpaque(false);
 		panelNums.setLayout(new BoxLayout(panelNums, BoxLayout.Y_AXIS));
 		panelSuperior.add(panelNums, BorderLayout.CENTER);
 
-		JLabel pieBoton = new JLabel("Pulsa para cocinar Pizzas");
+		// pequeño texto en la parte inferior del panel superior
+		JLabel pieBoton = new JLabel("Haz Click para cocinar Pizzas");
 		pieBoton.setForeground(new Color(225, 208, 205));
-		pieBoton.setFont(new Font("Segoe UI Emoji", Font.BOLD, 9));
+		pieBoton.setFont(new Font("Consolas", Font.BOLD, 11));
 		pieBoton.setHorizontalAlignment(SwingConstants.CENTER);
 		pieBoton.setBorder(new EmptyBorder(0, 0, 6, 0));
 		panelSuperior.add(pieBoton, BorderLayout.SOUTH);
 
+		// numero grande central del recurso
 		lblNum = new JLabel("0");
 		lblNum.setForeground(new Color(255, 215, 0));
 		lblNum.setFont(new Font("Consolas", Font.BOLD, 46));
 		lblNum.setAlignmentX(Component.CENTER_ALIGNMENT);
 		panelNums.add(lblNum);
 
-		// --- CARGA RECURSOS ---
-		ImageIcon pizza200 = cargarIconoRecurso("/img/pizza.png", 200, 200);
-		ImageIcon pizza207 = cargarIconoRecurso("/img/pizza.png", 207, 207);
-		iconoPizzaNormal = (pizza200 != null) ? pizza200 : new ImageIcon(); // fallback vacío
-		iconoPizzaGrande = (pizza207 != null) ? pizza207 : new ImageIcon();
-
-		iconoSlice = cargarIconoRecurso("/img/pizza_slice.png", 20, 20);
-
-		// icono bloqueo (link)
-		iconoBloqueo = cargarIconoRecurso("/img/link.png", 16, 16);
-
-		// NPS (icono + texto)
+		// numero/s mas icono de pizza pequeño
 		lblNps = new JLabel("/s 0");
 		lblNps.setForeground(new Color(255, 228, 225));
-		lblNps.setFont(fuenteEmoji);
+		lblNps.setFont(fuente);
 		lblNps.setAlignmentX(Component.CENTER_ALIGNMENT);
 		lblNps.setBorder(new EmptyBorder(6, 0, 6, 0));
 		lblNps.setIcon(iconoSlice);
@@ -189,108 +187,98 @@ public class Interfaz extends JFrame {
 		lblNps.setIconTextGap(6);
 		panelNums.add(lblNps);
 
-		// PIZZA label
-		this.etiquetaPizza = new JLabel(this.iconoPizzaNormal);
-		this.etiquetaPizza.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		this.etiquetaPizza.setAlignmentX(Component.CENTER_ALIGNMENT);
-		this.etiquetaPizza.setPreferredSize(new Dimension(208, 208));
+		// imagen de la pizza grande central
+		etiquetaPizza = new JLabel(this.iconoPizzaNormal);
+		etiquetaPizza.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		etiquetaPizza.setAlignmentX(Component.CENTER_ALIGNMENT);
+		etiquetaPizza.setPreferredSize(new Dimension(208, 208));
 
-		// FX pane
+		// efectos de feedback visuales de la pizza
 		pizzaFX = new PizzaFXPane(this.etiquetaPizza);
 		pizzaFX.setOpaque(false);
-
-		// halo
+		// halo efecto autoclick
 		pizzaFX.setHaloColors(new Color(255, 215, 0), new Color(255, 245, 200));
 		pizzaFX.setHaloStrokes(12f, 8f);
 		pizzaFX.setHaloPadding(2);
-
-		// slice icon en floats
+		// pequeños iconos de pizzas
 		pizzaFX.setSliceIcon("/img/pizza_slice.png", 22);
-
 		pizzaFX.setAlignmentX(Component.CENTER_ALIGNMENT);
 		pizzaFX.setPreferredSize(new Dimension(260, 260));
 		pizzaFX.setMaximumSize(new Dimension(280, 280));
-
 		panelNums.add(pizzaFX);
 
-		// zona central mejoras
-		panelMejoras = new JPanel();
-		panelMejoras.setLayout(new BoxLayout(panelMejoras, BoxLayout.Y_AXIS));
-		panelMejoras.setBackground(new Color(245, 245, 245));
-		panelMejoras.setBorder(BorderFactory.createCompoundBorder(
+		// panel inferior de la interfaz, mejoras
+		panelInferior = new JPanel();
+		panelInferior.setLayout(new BoxLayout(panelInferior, BoxLayout.Y_AXIS));
+		panelInferior.setBackground(new Color(245, 245, 245));
+		panelInferior.setBorder(BorderFactory.createCompoundBorder(
 				BorderFactory.createMatteBorder(0, 80, 0, 80, new Color(230, 225, 245)),
 				BorderFactory.createEmptyBorder(15, 20, 0, 20)));
 
-		scrollMejoras = new JScrollPane(panelMejoras);
+		scrollMejoras = new JScrollPane(panelInferior);
 		scrollMejoras.setBorder(null);
 		getContentPane().add(scrollMejoras, BorderLayout.CENTER);
-
 		setLocationRelativeTo(null);
 		setVisible(true);
 	}
+//////////////////// fin de generar interfaz
 
-	private void conectarEventos() {
-		feedbackBotonPizza();
-	}
-
-	public void notifyAutoClickFX() {
-		if (pizzaFX != null) {
-			pizzaFX.notifyAutoClickTick();
-		}
-	}
-
+	// feedback de hacer el boton de la pizza reaccione a click
 	private void feedbackBotonPizza() {
-		final int feedbackMs = 90;
-
+		final int tiempoFeedback = 90;
+		// si el ususario clicka la pizza
 		etiquetaPizza.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e) {
+				// se hace grande
 				etiquetaPizza.setIcon(iconoPizzaGrande);
-
-				new Timer(feedbackMs, ev -> {
+				// por 90ms
+				new Timer(tiempoFeedback, ejecuta -> {
+					// despues vuelve al tamaño normal
 					etiquetaPizza.setIcon(iconoPizzaNormal);
-					((Timer) ev.getSource()).stop();
+					((Timer) ejecuta.getSource()).stop();
 				}).start();
-
+				// invoca pequeños iconos con el valor del click que desaparecen con el tiempo
 				double npc = datos.getClickIncremento() + datos.getNps() / 50.0;
-				if (pizzaFX != null) {
-					pizzaFX.spawnClickFloat(npc);
-				}
-
+				pizzaFX.spawnClickFloat(npc, formatoAbreviado(npc, true, false));
+				// ejecuta la accion de clickar
 				datos.click();
+				// refresca la interfaz
 				refrescarInterfaz();
 			}
 		});
 	}
+//////////////////// fin de efectos feedback pizza
 
+	// bucle que crea botones de mejora dinamicamente segun cuantas mejoras haya
 	private RoundedButton crearBotonMejora(Mejora m) {
+		// se crea el boton
 		RoundedButton btn = new RoundedButton("", 40);
 		btn.setLayout(new BorderLayout());
 		btn.setFocusPainted(false);
 		btn.setBackground(BTN_GRIS_NO);
 		btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
 		btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
 		btn.setPreferredSize(new Dimension(10, 56));
 		btn.setAlignmentX(Component.CENTER_ALIGNMENT);
 		btn.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
 
-		// icono fijo (izquierda)
+		// icono de la mejora
 		JLabel lblIcon = new JLabel();
 		lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
 		lblIcon.setVerticalAlignment(SwingConstants.CENTER);
 		lblIcon.setPreferredSize(new Dimension(62, 44));
-
+		// nombre de la mejora
 		JLabel lblLeft = new JLabel();
-		lblLeft.setFont(fuenteEmoji);
+		lblLeft.setFont(fuente);
 		lblLeft.setHorizontalAlignment(SwingConstants.LEFT);
 		lblLeft.setVerticalAlignment(SwingConstants.CENTER);
-
+		// coste de la mejora
 		JLabel lblRight = new JLabel();
-		lblRight.setFont(fuenteEmoji);
+		lblRight.setFont(fuente);
 		lblRight.setHorizontalAlignment(SwingConstants.RIGHT);
 		lblRight.setVerticalAlignment(SwingConstants.CENTER);
-		lblRight.setPreferredSize(new Dimension(65, 34));
+		lblRight.setPreferredSize(new Dimension(80, 34));
 
 		btn.add(lblIcon, BorderLayout.WEST);
 		btn.add(lblLeft, BorderLayout.CENTER);
@@ -300,51 +288,96 @@ public class Interfaz extends JFrame {
 		btn.putClientProperty("left", lblLeft);
 		btn.putClientProperty("right", lblRight);
 
-		btn.addActionListener(ev -> {
+		// se le adjunta la funcion de si el usuario clicka el boton verifica si se
+		// puede usar (si puede permitirse la mejora)
+		btn.addActionListener(ejecuta -> {
 			if (!datos.verificarCompra(m)) {
 				return;
 			}
-
+			// si se compra, se ejecuta el metodo comprar
 			m.comprar(datos);
-
+			// ligero flash verde para feedback de compra
 			long hasta = System.currentTimeMillis() + 70;
+			// añade el dato del tiempo en el boton para usar despues en los efectos
 			btn.putClientProperty(PROP_FLASH_UNTIL, hasta);
-
+			// se refresca la interfaz para añadior los cambios
 			refrescarInterfaz();
 		});
 
 		return btn;
 	}
+//////////////////// fin de crear boton mejora
 
-	private void construirMejorasUI() {
-		panelMejoras.removeAll();
+	// por cada mejora que haya, añade los botones necesarios para que aparezcan
+	private void generarFilasDeMejoras() {
+		// se limpia infromacion anterior
+		panelInferior.removeAll();
 		botonesMejoras.clear();
-
-		for (Mejora m : mejorasClicker) {
+		// bucle para lasmejoras activas
+		for (Mejora m : mejorasActivas) {
 			RoundedButton btn = crearBotonMejora(m);
 			botonesMejoras.add(btn);
-			panelMejoras.add(btn);
-			panelMejoras.add(Box.createVerticalStrut(10));
+			panelInferior.add(btn);
+			panelInferior.add(Box.createVerticalStrut(10));
 		}
-
-		for (Mejora m : mejoras) {
+		// bucle para las mejoras pasivas
+		for (Mejora m : mejorasPasivas) {
 			RoundedButton btn = crearBotonMejora(m);
 			botonesMejoras.add(btn);
-			panelMejoras.add(btn);
-			panelMejoras.add(Box.createVerticalStrut(10));
+			panelInferior.add(btn);
+			panelInferior.add(Box.createVerticalStrut(10));
 		}
-
-		panelMejoras.revalidate();
-		panelMejoras.repaint();
+		// se renderizan los botonerds
+		panelInferior.revalidate();
+		panelInferior.repaint();
 	}
+//////////////////// fin de creacion de filas de mejoras
 
-	private String formatAbreviado(double n) {
+	private String formatoAbreviado(double n, boolean conDecimales, boolean numPrincipal) {
 		final String[] sufijos = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No" };
 
-		if (n < 100) {
-			return String.format(Locale.US, "%.2f", n);
+		// Por si llega negativo (mantener el signo)
+		boolean negativo = n < 0;
+		double abs = Math.abs(n);
+
+		// =========================
+		// CASO: NÚMERO PRINCIPAL
+		// =========================
+		if (numPrincipal) {
+			// 1) < 1000 => con decimales (2)
+			if (abs < 1_000) {
+				String s = FORMATO_ENTERO_ES.format(abs);
+				return negativo ? "-" + s : s;
+			}
+
+			// 2) 1000..99.999.999 => sin abreviar y sin decimales
+			if (abs <= 99_999_999) {
+				String s = FORMATO_ENTERO_ES.format(abs);
+				return negativo ? "-" + s : s;
+			}
+
+			// 3) > 99.999.999 => abreviado CON decimales
+			String s = abreviarNumeros(abs, true, sufijos);
+
 		}
 
+		// =========================
+		// CASO: NO PRINCIPAL
+		// =========================
+		if (abs < 1_000) {
+			String s = conDecimales ? String.format(localeES, "%.2f", abs) : String.format(localeES, "%.0f", abs);
+			return negativo ? "-" + s : s;
+		}
+
+		// >= 1000 => abrevia (con o sin decimales según conDecimales)
+		String s = abreviarNumeros(abs, conDecimales, sufijos);
+		return negativo ? "-" + s : s;
+	}
+
+	// Abrevia dividiendo entre 1000 y añadiendo sufijo.
+	// Si conDecimales=false => 0 decimales
+	// Si conDecimales=true => decimales según tamaño (como venías usando)
+	private String abreviarNumeros(double n, boolean conDecimales, String[] sufijos) {
 		double valor = n;
 		int indice = 0;
 
@@ -353,16 +386,19 @@ public class Interfaz extends JFrame {
 			indice++;
 		}
 
-		if (valor >= 999.5 && indice < sufijos.length - 1) {
-			valor /= 1_000.0;
-			indice++;
+		// SIN decimales
+		if (!conDecimales) {
+			return String.format(localeES, "%.0f%s", valor, sufijos[indice]);
 		}
 
-		if (valor >= 100)
-			return String.format(Locale.US, "%.0f%s", valor, sufijos[indice]);
-		if (valor >= 10)
-			return String.format(Locale.US, "%.1f%s", valor, sufijos[indice]);
-		return String.format(Locale.US, "%.2f%s", valor, sufijos[indice]);
+		// 🔥 CON decimales
+		// si está abreviado (M, B, T...) → siempre 2 decimales
+		if (indice > 0) {
+			return String.format(localeES, "%.2f%s", valor, sufijos[indice]);
+		}
+
+		// (esto solo pasaría si no hubiera abreviación, por seguridad)
+		return String.format(localeES, "%.2f", valor);
 	}
 
 	private void actualizarBotonMejora(RoundedButton btn, Mejora m) {
@@ -403,9 +439,9 @@ public class Interfaz extends JFrame {
 
 		if (!desbloqueado) {
 			icon.setIcon(cargarIconoRecurso("/img/link.png", 32, 32));
-			left.setText("            Requiere " + formatAbreviado(m.getCoste()));
+			left.setText("            Requiere " + formatoAbreviado(m.getCoste(), true, false));
 			right.setText("");
-			left.setFont(new Font("Ebrima", Font.BOLD, 15));
+			left.setFont(fuente);
 			btn.setBackground(flasheando ? BTN_FLASH : BTN_ROJO_LOCK);
 			btn.setEnabled(false);
 			btn.setCursor(Cursor.getDefaultCursor());
@@ -416,9 +452,9 @@ public class Interfaz extends JFrame {
 		icon.setIcon(ico);
 
 		left.setText(m.getNombre() + "  [ " + nivel + " ]");
-		left.setFont(new Font("Ebrima", Font.BOLD, 15));
-		right.setText(formatAbreviado((long) m.getCoste()));
-		right.setFont(new Font("Ebrima", Font.BOLD, 15));
+		left.setFont(fuente);
+		right.setText(formatoAbreviado(m.getCoste(), true, false));
+		right.setFont(fuente);
 
 		if (flasheando)
 			btn.setBackground(BTN_FLASH);
@@ -438,21 +474,20 @@ public class Interfaz extends JFrame {
 		if (botonesMejoras.isEmpty())
 			return;
 
-		long num = (long) datos.getNum();
-		if (num != ultimoNumeroMostrado) {
-			ultimoNumeroMostrado = num;
-			lblNum.setText(nf.format(num));
+		if (datos.getNum() != ultimoNumeroMostrado) {
+			ultimoNumeroMostrado = (long) datos.getNum();
+			lblNum.setText(formatoAbreviado(datos.getNum(), true, true));
 		}
 
-		String npsBase = "/s " + formatAbreviado(nps);
+		String npsBase = "/s " + formatoAbreviado(nps, true, false);
 
 		double periodoAuto = datos.getPeriodoAutoClicker();
 		String texto;
 		if (datos.getNivelAutoClicker() == 0) {
 			texto = npsBase;
 		} else {
-			texto = npsBase
-					+ String.format(Locale.US, "  |  Cocineros +%s cada %.2fs", formatAbreviado(npc), periodoAuto);
+			texto = npsBase + String.format(localeES, "  |  Cocineros +%s cada %.2fs",
+					formatoAbreviado(npc, true, false), periodoAuto);
 		}
 
 		if (!texto.equals(ultimoTextoNps)) {
@@ -461,14 +496,14 @@ public class Interfaz extends JFrame {
 		}
 
 		if (datos.autoClickerPulsado()) {
-			notifyAutoClickFX();
+			pizzaFX.efectoHaloTick();
 		}
 
 		int idx = 0;
-		for (Mejora m : mejorasClicker) {
+		for (Mejora m : mejorasActivas) {
 			actualizarBotonMejora(botonesMejoras.get(idx++), m);
 		}
-		for (Mejora m : mejoras) {
+		for (Mejora m : mejorasPasivas) {
 			actualizarBotonMejora(botonesMejoras.get(idx++), m);
 		}
 	}

@@ -43,8 +43,8 @@ public class ProtoPizzaAPP {
 
 		// mejoras pasivas autoclicker
 		// nombre / coste / incrementoCoste / umbralDesbloqueo / accion / ruta icono
-		mejorasPasivas.add(
-				new Mejora("Tabla de Pizzería", 103.5, 1.1575, 90, accion -> datos.subirNPS(0.625), "/img/wood.png"));
+		mejorasPasivas
+				.add(new Mejora("Pala Pizzera", 103.5, 1.1575, 90, accion -> datos.subirNPS(0.625), "/img/wood.png"));
 		mejorasPasivas
 				.add(new Mejora("Air Fryer", 431.25, 1.1575, 380, accion -> datos.subirNPS(2.25), "/img/fire.png"));
 		mejorasPasivas.add(
@@ -61,13 +61,13 @@ public class ProtoPizzaAPP {
 				"/img/factory.png"));
 		mejorasPasivas.add(new Mejora("Línea de producción", 905_625, 1.195, 800_000, accion -> datos.subirNPS(4_250),
 				"/img/factory.png"));
-		mejorasPasivas.add(new Mejora("Central pizzera", 2_501_250, 1.195, 2_200_000, accion -> datos.subirNPS(11_875),
+		mejorasPasivas.add(new Mejora("Central Pizzera", 2_501_250, 1.195, 2_200_000, accion -> datos.subirNPS(11_875),
 				"/img/office.png"));
 		mejorasPasivas.add(new Mejora("Megafactoría", 7_072_500, 1.2025, 6_200_000, accion -> datos.subirNPS(33_750),
 				"/img/factory.png"));
 		mejorasPasivas.add(new Mejora("PizzaCorp", 19_837_500, 1.2025, 17_000_000, accion -> datos.subirNPS(93_750),
 				"/img/briefcase.png"));
-		mejorasPasivas.add(new Mejora("Miltinacional PizzaCorp", 60_375_000, 1.2175, 52_000_000,
+		mejorasPasivas.add(new Mejora("Multinacional", 60_375_000, 1.2175, 52_000_000,
 				accion -> datos.subirNPS(275_000), "/img/earth_africa.png"));
 		mejorasPasivas.add(new Mejora("Impresora 3D de pizzas", 181_125_000, 1.225, 160_000_000,
 				accion -> datos.subirNPS(875_000), "/img/printer.png"));

@@ -9,7 +9,7 @@ public class Datos {
 	private boolean inicializarAutoclicker = false;
 
 	// n de pizzas inicial
-	private double num = 999999990;
+	private double num = 99999999990.;
 
 	// n de pizzas/s iniciales
 	private double nps = 0;

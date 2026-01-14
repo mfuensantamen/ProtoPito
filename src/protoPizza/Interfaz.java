@@ -113,16 +113,21 @@ public class Interfaz extends JFrame {
 	public Timer timerPartida = null;
 	private JPanel panelTiempo;
 	private JLabel lblTiempo;
-	int contador = 0;
+	int segundos = 0;
+	int minutos = 0;
 
 	public int timerPartida() {
 		timerPartida = new Timer(1000, new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				contador++;
+				segundos++;
+				if (segundos > 59) {
+					segundos = 0;
+					minutos++;
+				}
 			}
 		});
-		return contador;
+		return segundos;
 	}
 
 	{
@@ -195,16 +200,16 @@ public class Interfaz extends JFrame {
 		panelTiempo.setBorder(new BevelBorder(BevelBorder.LOWERED, null, null, null, null));
 		panelTiempo.setAlignmentY(Component.TOP_ALIGNMENT);
 		panelTiempo.setAlignmentX(Component.CENTER_ALIGNMENT);
-		panelTiempo.setBorder(new EmptyBorder(0,0,0,0));
+		panelTiempo.setBorder(new EmptyBorder(0, 0, 0, 0));
 		panelTiempo.setLayout(new BorderLayout(0, 0));
 		panelTiempo.setOpaque(false);
-		
+
 		lblTiempo = new JLabel("");
 		lblTiempo.setHorizontalAlignment(SwingConstants.CENTER);
 		lblTiempo.setForeground(new Color(255, 215, 0));
-		lblTiempo.setText("" + contador);
+		lblTiempo.setText(minutos + ":" + segundos);
 		lblTiempo.setFont(new Font("Consolas", Font.BOLD, 20));
-		
+
 		panelTiempo.add(lblTiempo, BorderLayout.NORTH);
 		panelNums.add(panelTiempo);
 
@@ -275,7 +280,7 @@ public class Interfaz extends JFrame {
 				if (timerPartida != null) {
 					timerPartida.start();
 				}
-				
+
 				// se hace grande
 				etiquetaPizza.setIcon(iconoPizzaGrande);
 				// por 90ms
@@ -525,7 +530,11 @@ public class Interfaz extends JFrame {
 		double nps = datos.getNps();
 		double npc = datos.getClickIncremento() + nps / 50.0;
 
-		lblTiempo.setText("Tiempo de Partida: " + contador);
+		if (segundos<10) {
+			lblTiempo.setText("Tiempo de Partida: " + minutos + ":0" + segundos);
+		}else {
+			lblTiempo.setText("Tiempo de Partida: " + minutos + ":" + segundos);
+		}
 
 		// si estan vacias se sale del procedimiento para evitar errores
 		if (botonesMejoras.isEmpty())

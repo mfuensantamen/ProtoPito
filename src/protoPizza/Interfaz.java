@@ -45,6 +45,7 @@ import javax.swing.Timer;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.EtchedBorder;
+import javax.swing.border.LineBorder;
 
 // clase que refresca y genera elementos de interfaz visual
 public class Interfaz extends JFrame {
@@ -111,10 +112,33 @@ public class Interfaz extends JFrame {
 	// tiempo de ejecucion
 
 	public Timer timerPartida = null;
+	public Timer timerClicks = null;
 	private JPanel panelTiempo;
 	private JLabel lblTiempo;
 	int segundos = 0;
 	int minutos = 0;
+	private JPanel panelDerecha;
+	public JLabel lblClicks;
+	double clicksSegundo;
+	double contadorClicks;
+	double ultimosClicks;
+	boolean contadorClicker = false;
+	double cps;
+
+	public double contadorClicks() {
+		timerClicks = new Timer(1000, new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent event) {
+
+				if (contadorClicker) {
+					contadorClicker = false;
+					cps = contadorClicks - ultimosClicks;
+					ultimosClicks = contadorClicks;
+				}
+			}
+		});
+		return contadorClicks;
+	}
 
 	public int timerPartida() {
 		timerPartida = new Timer(1000, new ActionListener() {
@@ -251,8 +275,20 @@ public class Interfaz extends JFrame {
 		pizzaFX.setMaximumSize(new Dimension(280, 280));
 		panelNums.add(pizzaFX);
 
+		panelDerecha = new JPanel();
+		panelDerecha.setOpaque(false);
+		panelDerecha.setBorder(null);
+		panelDerecha.setLayout(new BoxLayout(panelDerecha, BoxLayout.LINE_AXIS));
+		panelSuperior.add(panelDerecha, BorderLayout.EAST);
+
+		lblClicks = new JLabel("");
+		lblClicks.setHorizontalAlignment(SwingConstants.CENTER);
+		lblClicks.setFont(new Font("Consolas", Font.BOLD, 20));
+		panelDerecha.add(lblClicks);
+
 		// panel inferior de la interfaz, mejoras
 		panelInferior = new JPanel();
+		panelInferior.setOpaque(false);
 		panelInferior.setLayout(new BoxLayout(panelInferior, BoxLayout.Y_AXIS));
 		panelInferior.setBackground(new Color(245, 245, 245));
 		panelInferior.setBorder(BorderFactory.createCompoundBorder(
@@ -271,11 +307,18 @@ public class Interfaz extends JFrame {
 	private void feedbackBotonPizza() {
 		final int tiempoFeedback = 90;
 		timerPartida();
+		contadorClicks();
 		// si el ususario clicka la pizza
 		etiquetaPizza.addMouseListener(new MouseAdapter() {
 
 			@Override
 			public void mousePressed(MouseEvent e) {
+
+				if (timerPartida != null) {
+					contadorClicks++;
+					contadorClicker = true;
+					timerClicks.start();
+				}
 
 				if (timerPartida != null) {
 					timerPartida.start();
@@ -530,9 +573,15 @@ public class Interfaz extends JFrame {
 		double nps = datos.getNps();
 		double npc = datos.getClickIncremento() + nps / 50.0;
 
-		if (segundos<10) {
+		if (cps == 1 || cps == 0) {
+			lblClicks.setText("");
+		} else {
+			lblClicks.setText("" + cps);
+		}
+
+		if (segundos < 10) {
 			lblTiempo.setText("Tiempo de Partida: " + minutos + ":0" + segundos);
-		}else {
+		} else {
 			lblTiempo.setText("Tiempo de Partida: " + minutos + ":" + segundos);
 		}
 

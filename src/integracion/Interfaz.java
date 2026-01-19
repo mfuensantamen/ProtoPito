@@ -77,6 +77,8 @@ public class Interfaz extends JFrame {
 	// efectos visuales del boton
 	private PizzaEfectos pizzaFX;
 
+	JPanel panelSuperior;
+	
 	// panel de mejoras
 	private JPanel panelInferior;
 	private JScrollPane scrollMejoras;
@@ -260,8 +262,15 @@ public class Interfaz extends JFrame {
 			return;
 		if (cps < 0.01) {
 			lblClicks.setText("");
-		} else {
+		} else if(cps > 10){
 			lblClicks.setText(String.format(localeES, "%.2f", cps));
+			lblClicks.setForeground(new Color(255, 28, 25));
+		}else if(cps > 6){
+			lblClicks.setText(String.format(localeES, "%.2f", cps));
+			lblClicks.setForeground(new Color(255, 200, 115));
+		}else {
+			lblClicks.setText(String.format(localeES, "%.2f", cps));
+			lblClicks.setForeground(new Color(255, 228, 225));
 		}
 	}
 
@@ -284,7 +293,7 @@ public class Interfaz extends JFrame {
 		getContentPane().setLayout(new BorderLayout(0, 0));
 
 		// panel superior
-		JPanel panelSuperior = new JPanel();
+		panelSuperior = new JPanel();
 		panelSuperior.setPreferredSize(new Dimension(850, 390));
 		panelSuperior.setBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null));
 		panelSuperior.setBackground(new Color(150, 150, 170));
